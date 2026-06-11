@@ -19,8 +19,11 @@ Install all required dependencies:
 pip install datasets librosa soundfile transformers torch torchaudio scikit-learn
 pip install matplotlib seaborn pandas numpy tqdm
 
+# Vietnamese word segmentation (required for DFAT pipeline)
+pip install underthesea
+
 # Additional libraries for specific models
-pip install xgboost speechbrain optuna openai-whisper funasr modelscope addict
+pip install xgboost speechbrain optuna openai-whisper
 ```
 
 Or install from requirements file:
@@ -129,21 +132,23 @@ class ECAPA_TDNN(nn.Module):
 **Architecture**: Dual-stream Feature Aggregation with Late Fusion
 
 **Feature Extractors**:
-1. **SEFE** (Speech Emotion Feature Extractor): WavLM → 1024-dim
-2. **TEFE** (Textual Emotion Feature Extractor): Whisper → 1024-dim
+1. **SEFE** (Speech Emotion Feature Extractor): WavLM → 768-dim acoustic embeddings
+2. **TEFE** (Textual Emotion Feature Extractor): Whisper (ASR) → Vietnamese text → word segmentation (underthesea) → PhoBERT → 768-dim linguistic embeddings
 
 **Fusion Strategy**:
-- **Early Fusion**: Concatenate features (2048-dim)
+- **Early Fusion**: Concatenate features (1536-dim)
 - **Late Fusion**: Weighted ensemble of 3 classifiers
   - Logistic Regression
   - Random Forest
   - XGBoost (with Optuna optimization)
   
-**Pros**: Multi-modal approach, robust ensemble
+**Pros**: True audio-linguistic fusion, robust ensemble
 
 **Pipeline**:
 ```
-Audio → [WavLM + Whisper] → Concat → [LR + RF + XGB] → Weighted Voting
+Audio → [WavLM] → acoustic embedding (768-d)
+Audio → [Whisper ASR] → text → [word segmentation] → [PhoBERT] → linguistic embedding (768-d)
+→ Concat (1536-d) → [LR + RF + XGB] → Weighted Voting
 ```
 
 ---
@@ -301,4 +306,4 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Last updated**: January 2026
+**Last updated**: June 2026

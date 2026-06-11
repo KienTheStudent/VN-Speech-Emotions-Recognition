@@ -8,6 +8,8 @@ pandas==2.2.2
 scikit-learn==1.5.1
 seaborn==0.13.2
 soundfile==0.12.1
+torch>=2.0.0
+torchaudio>=2.0.0
 tqdm==4.66.5
 transformers==4.44.2
 underthesea>=6.0.0

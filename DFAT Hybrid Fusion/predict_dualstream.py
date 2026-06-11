@@ -15,8 +15,14 @@ warnings.filterwarnings('ignore')
 from underthesea import word_tokenize as vi_word_tokenize
 
 def load_audio(audio_path, sr=16000):
-    audio, _ = librosa.load(audio_path, sr=sr)
-    return audio
+    """Load audio file with error handling."""
+    try:
+        audio, _ = librosa.load(audio_path, sr=sr)
+        if audio is None or len(audio) == 0:
+            raise ValueError("Loaded audio is empty")
+        return audio
+    except Exception as e:
+        raise ValueError(f"Failed to load audio '{audio_path}': {e}")
 
 def extract_acoustic_features(audio_path, model, processor, device):
     audio = load_audio(audio_path, sr=16000)

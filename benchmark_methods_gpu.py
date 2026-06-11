@@ -160,6 +160,7 @@ def main():
             print(f"  MFCC train+val: {i}/{len(trainval_paths)}")
         audio = load_audio(p)
         if audio is None:
+            print(f"  Warning: Skipping train+val sample {i} (load failed)")
             continue
         mfcc_train.append(mfcc_feature(audio))
         mfcc_y_train.append(y)
@@ -170,6 +171,7 @@ def main():
             print(f"  MFCC test: {i}/{len(test_paths)}")
         audio = load_audio(p)
         if audio is None:
+            print(f"  Warning: Skipping test sample {i} (load failed)")
             continue
         mfcc_test.append(mfcc_feature(audio))
         mfcc_y_test.append(y)
@@ -200,6 +202,7 @@ def main():
             print(f"  WavLM train+val: {i}/{len(trainval_paths)}")
         audio = load_audio(p)
         if audio is None:
+            print(f"  Warning: Skipping train+val sample {i} (load failed)")
             continue
         wavlm_train.append(wavlm_feature(audio, extractor, wavlm, device))
         wavlm_y_train.append(y)
@@ -210,6 +213,7 @@ def main():
             print(f"  WavLM test: {i}/{len(test_paths)}")
         audio = load_audio(p)
         if audio is None:
+            print(f"  Warning: Skipping test sample {i} (load failed)")
             continue
         wavlm_test.append(wavlm_feature(audio, extractor, wavlm, device))
         wavlm_y_test.append(y)
@@ -307,13 +311,24 @@ def main():
         "protocol": "Leak-free benchmark on full ViSEC (5280 samples)",
         "split": "80% Train+Val / 10% Test (from split_manifest.json)",
         "samples_total": int(len(df)),
-        "trainval_size": int(len(trainval_idx)),
-        "test_size": int(len(test_idx)),
+        "trainval_size_nominal": int(len(trainval_idx)),
+        "test_size_nominal": int(len(test_idx)),
+        "mfcc_trainval_evaluated": int(len(mfcc_train)),
+        "mfcc_test_evaluated": int(len(mfcc_test)),
+        "wavlm_trainval_evaluated": int(len(wavlm_train)),
+        "wavlm_test_evaluated": int(len(wavlm_test)),
         "device": str(device),
         "emotion_labels": label_names,
         "ranked_results": ranked,
         "best_method": ranked[0],
     }
+
+    # Report if any samples were skipped
+    if len(mfcc_test) < len(test_idx):
+        print(f"\n⚠ MFCC: {len(test_idx) - len(mfcc_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(mfcc_test)})")
+    if len(wavlm_test) < len(test_idx):
+        print(f"⚠ WavLM: {len(test_idx) - len(wavlm_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(wavlm_test)})")
+
 
     output_path = Path(__file__).parent / "benchmark_results_gpu.json"
     with open(output_path, "w", encoding="utf-8") as f:
