@@ -2,7 +2,7 @@
 
 **Dataset:** hustep-lab/ViSEC (Vietnamese Speech Emotion Corpus)  
 **Task:** 4-class emotion classification — `angry`, `happy`, `neutral`, `sad`  
-**Split:** 4,224 train / 528 validation / 528 test (from `split_manifest.json`)  
+**Split:** ~4,227 train / 525 validation / 528 test (greedy speaker-independent split from `split_manifest.json`)  
 **Evaluation metric:** Weighted F1-Score (primary), Macro F1-Score, Accuracy  
 **Protocol:** All hyperparameter tuning and model selection on Validation set only; Test set evaluated exactly once.
 
@@ -19,7 +19,7 @@ The ViSEC dataset contains 5,280 audio samples with a moderately imbalanced clas
 | Happy   | 1,228 | 23.3% |
 | Sad     | 1,079 | 20.4% |
 
-Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples (42%), while many speakers contribute only 1–2 samples. Speaker-independent split is not practical under this distribution for maintaining stable class proportions and fair cross-model comparison. We use a sample-level stratified random split (80/10/10) and acknowledge speaker-dependent evaluation as a limitation.
+Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples (42%), while many speakers contribute only 1–2 samples. To avoid speaker leakage, we utilize a greedy speaker-allocation algorithm to generate a strict **speaker-independent split** (approx. 80/10/10). This ensures models learn emotion rather than speaker identity, though it heavily biases the training set towards Speaker 0.
 
 ---
 
@@ -43,7 +43,7 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 
 ### 2.4 DFAT Hybrid Fusion (ASR-Assisted Audio-Linguistic Fusion)
 - **SEFE (Acoustic):** WavLM-base-plus → 768-d embeddings
-- **TEFE (Linguistic):** Whisper-small encoder → 768-d embeddings (ASR-derived, not independent text)
+- **TEFE (Linguistic):** Whisper-small (ASR) → Vietnamese Text → word segmentation (`underthesea`) → PhoBERT-base-v2 → 768-d embeddings
 - **Early Fusion:** Concatenation → 1,536-d features, StandardScaler normalized
 - **Classifiers:** LR, RF, XGBoost (Optuna-tuned on **validation**, 10 trials)
 - **Late Fusion:** Weighted probability ensemble, weights optimized by Optuna (100 trials) on **validation**
@@ -145,7 +145,7 @@ Sad              7      5      20    76
 
 ## 6. Key Takeaways
 
-1. **ASR-assisted fusion >> audio-only methods.** DFAT's linguistic stream from Whisper encoder provides complementary cues that substantially improve emotion recognition (+7.0 pp over best baseline).
+1. **ASR-assisted fusion >> audio-only methods.** DFAT's linguistic stream (via Whisper transcription and PhoBERT) provides complementary cues that substantially improve emotion recognition (+7.0 pp over best baseline).
 
 2. **MFCC remains competitive on ViSEC.** Mean-pooled WavLM embeddings do not outperform MFCC when paired with classical classifiers, suggesting that the advantage of SSL representations may require task-specific fine-tuning rather than frozen feature extraction.
 
@@ -159,7 +159,7 @@ Sad              7      5      20    76
 
 ## 7. Limitations and Future Work
 
-- **Speaker-dependent evaluation**: ViSEC's extreme speaker imbalance (Speaker 0 = 42%) prevents practical speaker-independent splitting. Future work should explore speaker-aware stratified splits on more balanced corpora.
+- **Speaker Imbalance**: ViSEC's extreme speaker imbalance (Speaker 0 = 42%) means the strictly speaker-independent training set is dominated by one speaker, potentially limiting broad generalization. Future work should explore more balanced corpora.
 - **Single-seed results**: Multi-seed evaluation with confidence intervals would improve statistical robustness.
 - **ASR quality**: Whisper's Vietnamese word error rate may introduce noise; quantifying this impact is needed.
 - **Fine-tuning pretrained models**: WavLM and Whisper were used with frozen features. Fine-tuning on ViSEC may yield further gains.

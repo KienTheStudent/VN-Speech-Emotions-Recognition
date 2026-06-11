@@ -48,11 +48,13 @@ from underthesea import word_tokenize as vi_word_tokenize
 MANIFEST_PATH = Path(__file__).parent.parent / "split_manifest.json"
 TRANSCRIPT_CACHE_FILE = Path(__file__).parent / "transcript_cache.json"
 
+
 def load_transcript_cache():
     if TRANSCRIPT_CACHE_FILE.exists():
         with open(TRANSCRIPT_CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
+
 
 def save_transcript_cache(cache):
     with open(TRANSCRIPT_CACHE_FILE, "w", encoding="utf-8") as f:
@@ -72,6 +74,7 @@ def load_manifest():
 def load_audio(path_dict, sr=16000):
     try:
         import io
+
         if isinstance(path_dict, dict) and "bytes" in path_dict:
             audio, _ = librosa.load(io.BytesIO(path_dict["bytes"]), sr=sr)
         elif isinstance(path_dict, str):
@@ -113,14 +116,17 @@ def transcribe_audio(audio_path, model, processor, device, cache):
     inputs = inputs.input_features.to(device)
     with torch.no_grad():
         predicted_ids = model.generate(inputs, max_new_tokens=100)
-        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[
+            0
+        ]
 
     cache[path_str] = transcription
     return transcription
 
+
 def segment_text(text):
     """Word-segment Vietnamese text for PhoBERT.
-    
+
     PhoBERT was pre-trained on word-segmented data (multi-syllable words
     joined by underscores, e.g. 'Đại_học Quốc_gia'). Raw text must be
     segmented before tokenization for proper embeddings.
@@ -135,7 +141,9 @@ def extract_textual_features(text, model, tokenizer, device):
     segmented = segment_text(text)
     if not segmented.strip():
         return np.zeros(768, dtype=np.float32)
-    inputs = tokenizer(segmented, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
+    inputs = tokenizer(
+        segmented, return_tensors="pt", padding=True, truncation=True, max_length=256
+    ).to(device)
     with torch.no_grad():
         outputs = model(**inputs)
         features = outputs.pooler_output.squeeze().cpu().numpy()
@@ -144,22 +152,35 @@ def extract_textual_features(text, model, tokenizer, device):
     return features
 
 
-def extract_features_for_split(paths, labels, wavlm_model, wavlm_proc,
-                                whisper_model, whisper_proc, phobert_model, phobert_tokenizer, device, split_name, cache):
+def extract_features_for_split(
+    paths,
+    labels,
+    wavlm_model,
+    wavlm_proc,
+    whisper_model,
+    whisper_proc,
+    phobert_model,
+    phobert_tokenizer,
+    device,
+    split_name,
+    cache,
+):
     """Extract dual-stream features for a given split."""
     acoustic_list, textual_list, label_list = [], [], []
     for i, (path, label) in enumerate(zip(paths, labels)):
         if i % 200 == 0:
             print(f"  [{split_name}] {i}/{len(paths)}")
-            
+
         acoustic = extract_acoustic_features(path, wavlm_model, wavlm_proc, device)
         if acoustic is None:
             print(f"Warning: Skipping {path} due to load failure.")
             continue
-            
+
         text = transcribe_audio(path, whisper_model, whisper_proc, device, cache)
-        textual = extract_textual_features(text, phobert_model, phobert_tokenizer, device)
-        
+        textual = extract_textual_features(
+            text, phobert_model, phobert_tokenizer, device
+        )
+
         acoustic_list.append(acoustic)
         textual_list.append(textual)
         label_list.append(label)
@@ -167,9 +188,7 @@ def extract_features_for_split(paths, labels, wavlm_model, wavlm_proc,
     if i % 200 == 0 or len(paths) > 0:
         save_transcript_cache(cache)
 
-    fused = np.concatenate(
-        [np.array(acoustic_list), np.array(textual_list)], axis=1
-    )
+    fused = np.concatenate([np.array(acoustic_list), np.array(textual_list)], axis=1)
     print(f"  [{split_name}] Valid samples: {len(label_list)} / {len(paths)}")
     return fused, np.array(label_list)
 
@@ -214,7 +233,9 @@ def main():
     test_paths = df["path"].iloc[test_idx].values
     test_labels_raw = df["label"].iloc[test_idx].values
 
-    print(f"Split sizes: Train={len(train_paths)}, Val={len(val_paths)}, Test={len(test_paths)}")
+    print(
+        f"Split sizes: Train={len(train_paths)}, Val={len(val_paths)}, Test={len(test_paths)}"
+    )
 
     # ------------------------------------------------------------------
     # 3. Load pretrained models
@@ -224,13 +245,17 @@ def main():
 
     print("Loading WavLM (SEFE)...")
     wavlm_processor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-    wavlm_model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
+    wavlm_model = (
+        AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
+    )
 
     print("Loading Whisper (TEFE — ASR-derived)...")
     whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-small")
-    whisper_model = WhisperForConditionalGeneration.from_pretrained(
-        "openai/whisper-small"
-    ).to(device).eval()
+    whisper_model = (
+        WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
+        .to(device)
+        .eval()
+    )
 
     print("Loading PhoBERT (TEFE — linguistic)...")
     phobert_tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
@@ -243,23 +268,49 @@ def main():
     # ------------------------------------------------------------------
     print("\nExtracting dual-stream features...")
     train_fused, train_labels = extract_features_for_split(
-        train_paths, train_labels_raw,
-        wavlm_model, wavlm_processor, whisper_model, whisper_processor, phobert_model, phobert_tokenizer,
-        device, "Train", cache
+        train_paths,
+        train_labels_raw,
+        wavlm_model,
+        wavlm_processor,
+        whisper_model,
+        whisper_processor,
+        phobert_model,
+        phobert_tokenizer,
+        device,
+        "Train",
+        cache,
     )
     val_fused, val_labels = extract_features_for_split(
-        val_paths, val_labels_raw,
-        wavlm_model, wavlm_processor, whisper_model, whisper_processor, phobert_model, phobert_tokenizer,
-        device, "Val", cache
+        val_paths,
+        val_labels_raw,
+        wavlm_model,
+        wavlm_processor,
+        whisper_model,
+        whisper_processor,
+        phobert_model,
+        phobert_tokenizer,
+        device,
+        "Val",
+        cache,
     )
     test_fused, test_labels = extract_features_for_split(
-        test_paths, test_labels_raw,
-        wavlm_model, wavlm_processor, whisper_model, whisper_processor, phobert_model, phobert_tokenizer,
-        device, "Test", cache
+        test_paths,
+        test_labels_raw,
+        wavlm_model,
+        wavlm_processor,
+        whisper_model,
+        whisper_processor,
+        phobert_model,
+        phobert_tokenizer,
+        device,
+        "Test",
+        cache,
     )
 
     print(f"\nFeatures extracted:")
-    print(f"  Train: {train_fused.shape}, Val: {val_fused.shape}, Test: {test_fused.shape}")
+    print(
+        f"  Train: {train_fused.shape}, Val: {val_fused.shape}, Test: {test_fused.shape}"
+    )
 
     # Free GPU memory
     del wavlm_model, whisper_model, phobert_model
@@ -321,9 +372,7 @@ def main():
     print(f"  Best trial val F1: {study.best_value:.4f}")
     print(f"  Best params: {study.best_params}")
 
-    xgb_model = XGBClassifier(
-        **study.best_params, eval_metric="mlogloss"
-    )
+    xgb_model = XGBClassifier(**study.best_params, eval_metric="mlogloss")
     xgb_model.fit(train_fused, train_labels)
 
     # ------------------------------------------------------------------
@@ -356,7 +405,11 @@ def main():
     study2 = optuna.create_study(direction="maximize")
     study2.optimize(ensemble_objective, n_trials=100, show_progress_bar=True)
 
-    w1, w2, w3 = study2.best_params["w1"], study2.best_params["w2"], study2.best_params["w3"]
+    w1, w2, w3 = (
+        study2.best_params["w1"],
+        study2.best_params["w2"],
+        study2.best_params["w3"],
+    )
     total = w1 + w2 + w3
     w_xgb, w_rf, w_lr = w1 / total, w2 / total, w3 / total
 
@@ -387,7 +440,9 @@ def main():
     rf_test_proba = rf_model.predict_proba(test_fused)
     xgb_test_proba = xgb_model.predict_proba(test_fused)
 
-    ensemble_test_proba = w_xgb * xgb_test_proba + w_rf * rf_test_proba + w_lr * lr_test_proba
+    ensemble_test_proba = (
+        w_xgb * xgb_test_proba + w_rf * rf_test_proba + w_lr * lr_test_proba
+    )
     ensemble_test_pred = np.argmax(ensemble_test_proba, axis=1)
 
     test_f1_weighted = f1_score(test_labels, ensemble_test_pred, average="weighted")

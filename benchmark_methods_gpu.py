@@ -250,10 +250,16 @@ def main():
         evaluate_method(
             "MFCC+SVM",
             SVC(kernel="rbf", C=10.0, gamma="scale", random_state=42),
-            mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, label_names,
+            mfcc_train,
+            mfcc_y_train,
+            mfcc_test,
+            mfcc_y_test,
+            label_names,
         )
     )
-    print(f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}")
+    print(
+        f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}"
+    )
 
     # MFCC + RandomForest
     print("\n[2/5] MFCC + RandomForest")
@@ -261,10 +267,16 @@ def main():
         evaluate_method(
             "MFCC+RandomForest",
             RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1),
-            mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, label_names,
+            mfcc_train,
+            mfcc_y_train,
+            mfcc_test,
+            mfcc_y_test,
+            label_names,
         )
     )
-    print(f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}")
+    print(
+        f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}"
+    )
 
     # MFCC + XGBoost
     print("\n[3/5] MFCC + XGBoost")
@@ -272,14 +284,24 @@ def main():
         evaluate_method(
             "MFCC+XGBoost",
             XGBClassifier(
-                n_estimators=300, max_depth=8, learning_rate=0.08,
-                subsample=0.9, colsample_bytree=0.9, random_state=42,
+                n_estimators=300,
+                max_depth=8,
+                learning_rate=0.08,
+                subsample=0.9,
+                colsample_bytree=0.9,
+                random_state=42,
                 eval_metric="mlogloss",
             ),
-            mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, label_names,
+            mfcc_train,
+            mfcc_y_train,
+            mfcc_test,
+            mfcc_y_test,
+            label_names,
         )
     )
-    print(f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}")
+    print(
+        f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}"
+    )
 
     # WavLM + Logistic Regression
     print("\n[4/5] WavLM + LogReg")
@@ -287,10 +309,16 @@ def main():
         evaluate_method(
             "WavLM+LogReg",
             LogisticRegression(max_iter=1000, random_state=42),
-            wavlm_train, wavlm_y_train, wavlm_test, wavlm_y_test, label_names,
+            wavlm_train,
+            wavlm_y_train,
+            wavlm_test,
+            wavlm_y_test,
+            label_names,
         )
     )
-    print(f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}")
+    print(
+        f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}"
+    )
 
     # WavLM + SVM
     print("\n[5/5] WavLM + SVM")
@@ -298,10 +326,16 @@ def main():
         evaluate_method(
             "WavLM+SVM",
             SVC(kernel="rbf", C=5.0, gamma="scale", random_state=42),
-            wavlm_train, wavlm_y_train, wavlm_test, wavlm_y_test, label_names,
+            wavlm_train,
+            wavlm_y_train,
+            wavlm_test,
+            wavlm_y_test,
+            label_names,
         )
     )
-    print(f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}")
+    print(
+        f"  Weighted F1: {results[-1]['f1_weighted']:.4f}  Macro F1: {results[-1]['f1_macro']:.4f}"
+    )
 
     # ------------------------------------------------------------------
     # 5. Rank and save
@@ -325,10 +359,13 @@ def main():
 
     # Report if any samples were skipped
     if len(mfcc_test) < len(test_idx):
-        print(f"\n⚠ MFCC: {len(test_idx) - len(mfcc_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(mfcc_test)})")
+        print(
+            f"\n⚠ MFCC: {len(test_idx) - len(mfcc_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(mfcc_test)})"
+        )
     if len(wavlm_test) < len(test_idx):
-        print(f"⚠ WavLM: {len(test_idx) - len(wavlm_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(wavlm_test)})")
-
+        print(
+            f"⚠ WavLM: {len(test_idx) - len(wavlm_test)} test samples skipped (nominal={len(test_idx)}, evaluated={len(wavlm_test)})"
+        )
 
     output_path = Path(__file__).parent / "benchmark_results_gpu.json"
     with open(output_path, "w", encoding="utf-8") as f:

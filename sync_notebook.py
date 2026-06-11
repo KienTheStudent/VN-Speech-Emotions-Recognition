@@ -162,51 +162,45 @@ else:
     plt.show()
 """
 
+
 def split_lines(text):
     return [line + "\n" for line in text.split("\n")]
 
+
 # Build clean notebook structure
 cells = [
+    {"cell_type": "markdown", "metadata": {}, "source": split_lines(cell_intro)[:-1]},
     {
-        "cell_type": "markdown",
+        "cell_type": "code",
+        "execution_count": None,
         "metadata": {},
-        "source": split_lines(cell_intro)[:-1]
+        "outputs": [],
+        "source": split_lines(cell_setup)[:-1],
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": split_lines(cell_setup)[:-1]
+        "source": split_lines(cell_ecapa)[:-1],
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": split_lines(cell_ecapa)[:-1]
+        "source": split_lines(cell_dfat)[:-1],
     },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": split_lines(cell_dfat)[:-1]
-    }
 ]
 
 nb = {
     "cells": cells,
-    "metadata": {
-        "language_info": {
-            "name": "python"
-        }
-    },
+    "metadata": {"language_info": {"name": "python"}},
     "nbformat": 4,
-    "nbformat_minor": 2
+    "nbformat_minor": 2,
 }
 
-with open(notebook_path, 'w', encoding='utf-8') as f:
+with open(notebook_path, "w", encoding="utf-8") as f:
     json.dump(nb, f, indent=1, ensure_ascii=False)
 
 print(f"Notebook synchronized successfully to {notebook_path}")

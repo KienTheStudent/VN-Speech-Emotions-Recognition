@@ -6,8 +6,8 @@ This script creates a single source of truth for data splitting that all
 training and evaluation scripts must read from, ensuring that every model
 is compared on the exact same test set.
 
-Split ratio: 80% Train / 10% Val / 10% Test (stratified by emotion label).
-Random seed: 42 (fixed for reproducibility).
+Split ratio: approx 80% Train / 10% Val / 10% Test (greedy speaker-independent split).
+Random seed: 42 (used in other modules, but this split uses deterministic greedy bin-packing).
 
 Output: split_manifest.json in the project root directory.
 """
@@ -56,15 +56,17 @@ def main():
     global_dist = df["emotion"].value_counts(normalize=True).to_dict()
 
     speaker_stats = []
-    for spk, group in df.groupby('speaker_id'):
-        speaker_stats.append({
-            'speaker_id': spk,
-            'count': len(group),
-            'indices': group.index.tolist(),
-            'emotions': group['emotion'].value_counts().to_dict()
-        })
+    for spk, group in df.groupby("speaker_id"):
+        speaker_stats.append(
+            {
+                "speaker_id": spk,
+                "count": len(group),
+                "indices": group.index.tolist(),
+                "emotions": group["emotion"].value_counts().to_dict(),
+            }
+        )
     # Sort speakers by count descending (Speaker 0 is huge and goes first)
-    speaker_stats.sort(key=lambda x: x['count'], reverse=True)
+    speaker_stats.sort(key=lambda x: x["count"], reverse=True)
 
     def compute_cost(current_len, target_len, current_emotions, spk_emotions):
         new_len = current_len + sum(spk_emotions.values())
@@ -73,31 +75,49 @@ def main():
             size_penalty = 1000 * (new_len - target_len) / target_len
         else:
             size_penalty = 0
-            
+
         dist_loss = 0
         for e, target_prop in global_dist.items():
-            new_prop = (current_emotions.get(e, 0) + spk_emotions.get(e, 0)) / new_len if new_len > 0 else 0
+            new_prop = (
+                (current_emotions.get(e, 0) + spk_emotions.get(e, 0)) / new_len
+                if new_len > 0
+                else 0
+            )
             dist_loss += abs(new_prop - target_prop)
         return dist_loss + size_penalty
 
     for spk in speaker_stats:
         costs = [
-            ('train', compute_cost(len(train_idx), target_train, train_counts, spk['emotions'])),
-            ('val', compute_cost(len(val_idx), target_val, val_counts, spk['emotions'])),
-            ('test', compute_cost(len(test_idx), target_test, test_counts, spk['emotions']))
+            (
+                "train",
+                compute_cost(
+                    len(train_idx), target_train, train_counts, spk["emotions"]
+                ),
+            ),
+            (
+                "val",
+                compute_cost(len(val_idx), target_val, val_counts, spk["emotions"]),
+            ),
+            (
+                "test",
+                compute_cost(len(test_idx), target_test, test_counts, spk["emotions"]),
+            ),
         ]
-        
+
         best_split = min(costs, key=lambda x: x[1])[0]
-        
-        if best_split == 'train':
-            train_idx.extend(spk['indices'])
-            for e, c in spk['emotions'].items(): train_counts[e] = train_counts.get(e, 0) + c
-        elif best_split == 'val':
-            val_idx.extend(spk['indices'])
-            for e, c in spk['emotions'].items(): val_counts[e] = val_counts.get(e, 0) + c
+
+        if best_split == "train":
+            train_idx.extend(spk["indices"])
+            for e, c in spk["emotions"].items():
+                train_counts[e] = train_counts.get(e, 0) + c
+        elif best_split == "val":
+            val_idx.extend(spk["indices"])
+            for e, c in spk["emotions"].items():
+                val_counts[e] = val_counts.get(e, 0) + c
         else:
-            test_idx.extend(spk['indices'])
-            for e, c in spk['emotions'].items(): test_counts[e] = test_counts.get(e, 0) + c
+            test_idx.extend(spk["indices"])
+            for e, c in spk["emotions"].items():
+                test_counts[e] = test_counts.get(e, 0) + c
 
     print(f"\nSplit sizes:")
     print(f"  Train: {len(train_idx)} ({len(train_idx)/len(df)*100:.1f}%)")
@@ -114,14 +134,19 @@ def main():
     assert len(train_set & val_set) == 0, "Train/Val overlap detected!"
     assert len(train_set & test_set) == 0, "Train/Test overlap detected!"
     assert len(val_set & test_set) == 0, "Val/Test overlap detected!"
-    assert len(train_set) + len(val_set) + len(test_set) == len(df), \
-        "Split sizes don't add up!"
+    assert len(train_set) + len(val_set) + len(test_set) == len(
+        df
+    ), "Split sizes don't add up!"
 
     train_speakers = set(df.iloc[train_idx]["speaker_id"])
     val_speakers = set(df.iloc[val_idx]["speaker_id"])
     test_speakers = set(df.iloc[test_idx]["speaker_id"])
-    assert len(train_speakers & val_speakers) == 0, "Train/Val speaker overlap detected!"
-    assert len(train_speakers & test_speakers) == 0, "Train/Test speaker overlap detected!"
+    assert (
+        len(train_speakers & val_speakers) == 0
+    ), "Train/Val speaker overlap detected!"
+    assert (
+        len(train_speakers & test_speakers) == 0
+    ), "Train/Test speaker overlap detected!"
     assert len(val_speakers & test_speakers) == 0, "Val/Test speaker overlap detected!"
 
     print("\n✓ No sample or speaker overlap between splits. Integrity verified.")
