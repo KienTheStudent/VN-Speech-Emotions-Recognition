@@ -78,11 +78,11 @@ Sad     & 1,079 & 20.4\% \\
 \label{tab:dataset_dist}
 \end{table}
 
-The class distribution exhibits mild imbalance (Neutral-to-Sad ratio $\approx 1.4\times$). Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples (42\%), while many speakers contribute only 1--2 samples. This extreme imbalance makes speaker-independent evaluation impractical for maintaining stable class distributions across splits; we therefore adopt a sample-level stratified random split and acknowledge this as a limitation (Section~\ref{sec:limitations}).
+The class distribution exhibits mild imbalance (Neutral-to-Sad ratio $\approx 1.4\times$). Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples (42\%), while many speakers contribute only 1--2 samples. To ensure robust evaluation and avoid speaker leakage (where models learn speaker identity instead of emotion), we implemented a greedy speaker-allocation algorithm. This guarantees a strict speaker-independent split across the Train/Val/Test sets.
 
 \subsection{Split Protocol}
 \label{sec:split_protocol}
-We use a fixed stratified split: 80\% Train (4,224), 10\% Validation (528), 10\% Test (528), generated once and stored in a manifest file (\texttt{split\_manifest.json}). All models read from this manifest to ensure evaluation on the identical test set. The Validation set is used for early stopping, learning rate scheduling, and hyperparameter tuning (Optuna). The Test set is evaluated exactly once per model for final reporting. Note: these are \emph{nominal} manifest sizes. If individual audio files fail to load, the corresponding samples are excluded and each pipeline reports the actual number of successfully evaluated samples alongside the nominal count.
+We use a fixed speaker-independent split: approx. 80\% Train (4,227), 10\% Validation (525), 10\% Test (528), generated once via a greedy allocation strategy and stored in a manifest file (\texttt{split\_manifest.json}). All models read from this manifest to ensure evaluation on the identical test set. The Validation set is used for early stopping, learning rate scheduling, and hyperparameter tuning (Optuna). The Test set is evaluated exactly once per model for final reporting. Note: these are \emph{nominal} manifest sizes. If individual audio files fail to load, the corresponding samples are excluded and each pipeline reports the actual number of successfully evaluated samples alongside the nominal count.
 
 \section{\textbf{Methods}}
 
@@ -253,8 +253,8 @@ MFCC+RF offers the best cost-efficiency ratio among baselines: competitive accur
 \section{\textbf{Limitations}}
 \label{sec:limitations}
 
+While we successfully achieved a strict speaker-independent split, the heavy imbalance in speaker contributions (Speaker 0 providing 42\% of samples) means the Training set is dominated by a single speaker. This could limit the model's ability to generalize to a wide variety of unseen speakers in the wild, though our evaluation on the isolated Test set confirms baseline robustness. Furthermore, relying on automatic transcription (Whisper) introduces a dependency on ASR quality; transcription errors naturally cascade into the linguistic embedding stream.
 \begin{enumerate}
-    \item \textbf{Speaker-dependent split}: ViSEC's speaker distribution is highly long-tailed (Speaker 0 contributes 42\% of all samples). A speaker-independent split is not practical under this distribution for maintaining stable class proportions and fair cross-model comparison. Our sample-level stratified split may overestimate performance due to speaker leakage.
     \item \textbf{Single-run evaluation}: Results are reported from a single run with fixed seed. Multi-seed evaluation with confidence intervals would strengthen the statistical reliability.
     \item \textbf{ASR noise}: Whisper's word error rate on Vietnamese may introduce noise into the linguistic features. The impact of ASR quality on DFAT performance is not quantified.
     \item \textbf{Dataset scale}: With 5,280 samples, ViSEC is moderate in size. Evaluation on larger Vietnamese SER corpora would improve generalizability claims.

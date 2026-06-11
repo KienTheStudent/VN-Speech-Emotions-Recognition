@@ -23,6 +23,7 @@ import torch
 from datasets import load_dataset
 from sklearn.preprocessing import LabelEncoder
 import warnings
+from pathlib import Path
 warnings.filterwarnings('ignore')
 
 # Load original dataset
@@ -123,15 +124,17 @@ else:
     phobert_tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
     phobert_model = AutoModel.from_pretrained("vinai/phobert-base-v2").to(device).eval()
     
-    from train_dualstream import extract_features_for_split
+    from train_dualstream import extract_features_for_split, load_transcript_cache, save_transcript_cache
     
     print("\\nExtracting Dual-Stream Features for Test Set (this will take several minutes)...")
     # This invokes audio loading, Whisper ASR, Underthesea word segmentation, and PhoBERT embedding.
     # It automatically uses transcript_cache.json if available.
+    cache = load_transcript_cache()
     test_fused, test_labels_ext = extract_features_for_split(
         X_test, y_test, wavlm_model, wavlm_processor, whisper_model, whisper_processor, 
-        phobert_model, phobert_tokenizer, device, "Test"
+        phobert_model, phobert_tokenizer, device, "Test", cache
     )
+    save_transcript_cache(cache)
     
     # Scale features
     test_fused_scaled = scaler.transform(test_fused)
@@ -159,33 +162,36 @@ else:
     plt.show()
 """
 
+def split_lines(text):
+    return [line + "\n" for line in text.split("\n")]
+
 # Build clean notebook structure
 cells = [
     {
         "cell_type": "markdown",
         "metadata": {},
-        "source": [line + "\\n" for line in cell_intro.split("\\n")][:-1]
+        "source": split_lines(cell_intro)[:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\\n" for line in cell_setup.split("\\n")][:-1]
+        "source": split_lines(cell_setup)[:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\\n" for line in cell_ecapa.split("\\n")][:-1]
+        "source": split_lines(cell_ecapa)[:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\\n" for line in cell_dfat.split("\\n")][:-1]
+        "source": split_lines(cell_dfat)[:-1]
     }
 ]
 
