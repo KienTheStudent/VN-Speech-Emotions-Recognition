@@ -1,0 +1,13 @@
+datasets==2.21.0
+huggingface_hub==0.24.6
+librosa==0.10.2.post1
+matplotlib==3.9.2
+numpy==1.26.4
+optuna==3.6.1
+pandas==2.2.2
+scikit-learn==1.5.1
+seaborn==0.13.2
+soundfile==0.12.1
+tqdm==4.66.5
+transformers==4.44.2
+xgboost==2.1.1

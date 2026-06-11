@@ -1,0 +1,94 @@
+{
+  "protocol": "Leak-free: Val for Optuna tuning & ensemble weights, Test evaluated once",
+  "split_source": "split_manifest.json",
+  "emotion_labels": [
+    "angry",
+    "happy",
+    "neutral",
+    "sad"
+  ],
+  "ensemble_weights": {
+    "xgb": 0.34221326737835506,
+    "rf": 0.42741573943527383,
+    "lr": 0.2303709931863711
+  },
+  "xgboost_best_params": {
+    "max_depth": 10,
+    "learning_rate": 0.12651158950877636,
+    "n_estimators": 148,
+    "min_child_weight": 7,
+    "subsample": 0.6258119516418447,
+    "colsample_bytree": 0.7937199754635279,
+    "gamma": 0.3848401255198169
+  },
+  "xgboost_best_val_f1": 0.7139219433268204,
+  "ensemble_best_val_f1": 0.7345281525188515,
+  "test_accuracy": 0.7178030303030303,
+  "test_f1_weighted": 0.7176201331564247,
+  "test_f1_macro": 0.7165537344333364,
+  "classification_report": {
+    "angry": {
+      "precision": 0.7891156462585034,
+      "recall": 0.7891156462585034,
+      "f1-score": 0.7891156462585034,
+      "support": 147.0
+    },
+    "happy": {
+      "precision": 0.7156862745098039,
+      "recall": 0.5934959349593496,
+      "f1-score": 0.6488888888888888,
+      "support": 123.0
+    },
+    "neutral": {
+      "precision": 0.6263736263736264,
+      "recall": 0.76,
+      "f1-score": 0.6867469879518072,
+      "support": 150.0
+    },
+    "sad": {
+      "precision": 0.7835051546391752,
+      "recall": 0.7037037037037037,
+      "f1-score": 0.7414634146341463,
+      "support": 108.0
+    },
+    "accuracy": 0.7178030303030303,
+    "macro avg": {
+      "precision": 0.7286701754452772,
+      "recall": 0.7115788212303892,
+      "f1-score": 0.7165537344333364,
+      "support": 528.0
+    },
+    "weighted avg": {
+      "precision": 0.7246288114048878,
+      "recall": 0.7178030303030303,
+      "f1-score": 0.7176201331564247,
+      "support": 528.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      116,
+      9,
+      17,
+      5
+    ],
+    [
+      16,
+      73,
+      31,
+      3
+    ],
+    [
+      8,
+      15,
+      114,
+      13
+    ],
+    [
+      7,
+      5,
+      20,
+      76
+    ]
+  ]
+}

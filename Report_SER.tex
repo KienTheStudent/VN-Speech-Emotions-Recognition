@@ -1,0 +1,340 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{lineno}
+\usepackage{microtype} 
+\usepackage[hidelinks]{hyperref}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{dblfloatfix}
+
+\title{Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese Speech Emotion Recognition on ViSEC}
+\author{
+    \IEEEauthorblockN{Ngo Xuan Kien}
+    \IEEEauthorblockA{Student ID: 23BI14230 \\ B3 Data Science}
+}
+\date{May 2026}
+
+\usepackage{url}
+
+\begin{document}
+
+\tolerance=2000
+\emergencystretch=15pt
+\maketitle
+
+\begin{abstract}
+This paper presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate seven classification pipelines spanning three paradigms: handcrafted features with classical ML (MFCC with SVM, Random Forest, and XGBoost), self-supervised speech representations with classical ML (WavLM embeddings with SVM and Logistic Regression), end-to-end deep learning (ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with Whisper-derived linguistic embeddings. All experiments follow a strict leak-free protocol with a fixed stratified Train (80\%) / Validation (10\%) / Test (10\%) split shared across all models via a reproducible manifest file. On the held-out test set (nominally 528 samples; see Section~\ref{sec:split_protocol} for details), DFAT Late Fusion Ensemble achieves the best performance with a weighted F1-score of 0.7176 and accuracy of 71.78\%, outperforming the best baseline MFCC+RandomForest (weighted F1 0.6475) and ECAPA-TDNN (weighted F1 0.6137) by significant margins. Our results demonstrate that ASR-assisted audio-linguistic fusion provides complementary cues that substantially improve emotion recognition, particularly for acoustically ambiguous classes such as Neutral.
+\end{abstract}
+
+\section{\textbf{Introduction}}
+Speech emotion recognition (SER) is a critical task in human-computer interaction, sentiment analysis, call center analytics, and mental health monitoring. Unlike traditional speech recognition (which focuses on what is said), SER aims to identify the emotional state conveyed in a person's voice. Emotions in speech are characterized by distinctive acoustic patterns: frequency content, energy distribution, temporal dynamics, and spectral shapes differ measurably between emotions such as anger, happiness, neutrality, and sadness.
+
+Traditional approaches to SER often rely on hand-crafted acoustic features (e.g., MFCC, prosody), which require domain expertise and can miss subtle patterns. Modern deep learning methods, particularly those using pre-trained speech models such as WavLM~\cite{wavlm} and specialized architectures like ECAPA-TDNN~\cite{ecapa}, have shown superior performance by automatically learning emotion-discriminative representations from raw audio or mel-spectrograms. More recently, hybrid approaches that combine acoustic and linguistic features have emerged as promising directions~\cite{ser_multimodal}.
+
+This work presents a systematic evaluation of multiple SER approaches on Vietnamese speech, comparing feature-based classical methods with contemporary deep learning techniques and a proposed ASR-assisted audio-linguistic fusion system. We address the following research questions:
+
+\begin{itemize}
+    \item \textbf{RQ1}: How do handcrafted MFCC features compare with pretrained self-supervised WavLM embeddings for Vietnamese SER on ViSEC?
+    \item \textbf{RQ2}: Does WavLM consistently outperform MFCC across all individual emotion classes?
+    \item \textbf{RQ3}: Does ASR-assisted audio-linguistic fusion improve emotion recognition compared to audio-only approaches?
+    \item \textbf{RQ4}: What is the trade-off between recognition performance and computational cost across all evaluated methods?
+\end{itemize}
+
+\section{\textbf{Related Work}}
+
+\subsection{Traditional SER}
+Classical SER systems typically extract hand-crafted features such as MFCCs, pitch, energy, and prosodic features, then apply machine learning classifiers like SVM~\cite{ser_survey}, Random Forest, or XGBoost~\cite{xgboost}. While interpretable and computationally efficient, these approaches are limited by the quality of manual feature engineering.
+
+\subsection{Self-Supervised Speech Representations}
+Recent advances in self-supervised learning have produced powerful speech representations. Models such as Wav2Vec 2.0~\cite{wav2vec2}, HuBERT~\cite{hubert}, and WavLM~\cite{wavlm} learn contextualized embeddings from large-scale unlabeled speech data. These representations have shown strong transfer to downstream tasks including SER, often outperforming hand-crafted features.
+
+\subsection{ECAPA-TDNN}
+ECAPA-TDNN~\cite{ecapa} is a specialized architecture combining Time-Delay Neural Networks with Squeeze-and-Excitation blocks and multi-scale feature aggregation. Originally designed for speaker verification, it has been successfully adapted for emotion recognition tasks.
+
+\subsection{Multimodal and Fusion-Based SER}
+Multimodal SER approaches combine multiple signal modalities (audio, text, video) to improve recognition accuracy~\cite{ser_multimodal}. In this work, we use Whisper~\cite{whisper} encoder embeddings as ASR-derived linguistic features. Since the text modality is inferred from audio via ASR rather than being an independent source, we characterize our approach as \emph{ASR-assisted audio-linguistic fusion} rather than true multimodal learning.
+
+\section{\textbf{Dataset: ViSEC}}
+
+The Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec} is publicly available on Hugging Face and contains 5,280 audio utterances from 147 speakers. Each utterance is a single-channel, 16 kHz WAV file annotated with one of four emotion labels.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\hline
+\textbf{Emotion} & \textbf{Samples} & \textbf{Percentage} \\
+\hline
+Neutral & 1,507 & 28.5\% \\
+Angry   & 1,466 & 27.8\% \\
+Happy   & 1,228 & 23.3\% \\
+Sad     & 1,079 & 20.4\% \\
+\hline
+\textbf{Total} & \textbf{5,280} & \textbf{100\%} \\
+\hline
+\end{tabular}
+\caption{ViSEC dataset distribution by emotion class}
+\label{tab:dataset_dist}
+\end{table}
+
+The class distribution exhibits mild imbalance (Neutral-to-Sad ratio $\approx 1.4\times$). Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples (42\%), while many speakers contribute only 1--2 samples. This extreme imbalance makes speaker-independent evaluation impractical for maintaining stable class distributions across splits; we therefore adopt a sample-level stratified random split and acknowledge this as a limitation (Section~\ref{sec:limitations}).
+
+\subsection{Split Protocol}
+\label{sec:split_protocol}
+We use a fixed stratified split: 80\% Train (4,224), 10\% Validation (528), 10\% Test (528), generated once and stored in a manifest file (\texttt{split\_manifest.json}). All models read from this manifest to ensure evaluation on the identical test set. The Validation set is used for early stopping, learning rate scheduling, and hyperparameter tuning (Optuna). The Test set is evaluated exactly once per model for final reporting. Note: these are \emph{nominal} manifest sizes. If individual audio files fail to load, the corresponding samples are excluded and each pipeline reports the actual number of successfully evaluated samples alongside the nominal count.
+
+\section{\textbf{Methods}}
+
+We implement seven methods spanning four paradigms:
+
+\subsection{MFCC + Classical ML (Baselines)}
+We extract 40-dimensional MFCC vectors from each audio sample and train three classifiers:
+\begin{itemize}
+    \item \textbf{MFCC+SVM}: RBF kernel, $C=10.0$
+    \item \textbf{MFCC+RandomForest}: 300 estimators
+    \item \textbf{MFCC+XGBoost}: 300 estimators, $\text{max\_depth}=8$, $\text{lr}=0.08$
+\end{itemize}
+
+\subsection{WavLM Embeddings + Classical ML}
+WavLM~\cite{wavlm} (\texttt{wavlm-base-plus}) produces 768-dimensional contextualized speech embeddings. We extract mean-pooled embeddings and train:
+\begin{itemize}
+    \item \textbf{WavLM+LogReg}: Logistic Regression ($\text{max\_iter}=1000$)
+    \item \textbf{WavLM+SVM}: RBF kernel, $C=5.0$
+\end{itemize}
+
+\subsection{ECAPA-TDNN (End-to-End Deep Learning)}
+ECAPA-TDNN~\cite{ecapa} processes 80-channel mel-spectrograms through time-delay layers with Squeeze-and-Excitation blocks. Architecture: 256 channels, 192-d embeddings, $\sim$1M parameters. Trained for up to 100 epochs with Adam ($\text{lr}=3 \times 10^{-4}$), linear warmup, \texttt{ReduceLROnPlateau} scheduler on validation F1, and early stopping (patience=20).
+
+\subsection{DFAT Hybrid Fusion (Proposed Method)}
+Our proposed Dual-stream Feature Aggregation system (DFAT) combines:
+
+\textbf{Stream 1 — SEFE (Speech Emotion Feature Extraction)}: WavLM-base-plus produces 768-d acoustic embeddings capturing prosodic and speaker-level dynamics.
+
+\textbf{Stream 2 — TEFE (Textual Emotion Feature Extraction)}: Whisper-small~\cite{whisper} transcribes audio to Vietnamese text, which is then word-segmented and encoded by PhoBERT-base-v2 to produce 768-d linguistic embeddings. We emphasize that these are \emph{not} independent text features but rather linguistic representations inferred from the same audio signal via ASR.
+
+\textbf{Early Fusion}: Concatenation of SEFE + TEFE vectors produces 1,536-d features, normalized with StandardScaler.
+
+\textbf{Classifiers}: Logistic Regression, Random Forest, and XGBoost (hyperparameters optimized via Optuna on the validation set, 10 trials).
+
+\textbf{Late Fusion Ensemble}: Weighted probability combination of all three classifiers. Weights optimized via Optuna (100 trials) on the validation set.
+
+\section{\textbf{Experimental Setup}}
+
+\subsection{Infrastructure}
+All experiments were executed on an NVIDIA RTX 5060 Ti GPU. Feature extraction for WavLM and Whisper was performed on GPU; classical ML classifiers were trained on CPU.
+
+\subsection{Evaluation Metrics}
+We report Weighted F1-Score (primary metric), Macro F1-Score, Accuracy, per-class Precision/Recall/F1, and confusion matrices. Inference latency per sample is measured for computational cost analysis.
+
+\subsection{Leak-Free Protocol}
+All hyperparameter tuning and model selection decisions use the validation set exclusively. The test set is evaluated exactly once per model at the end of training.
+
+\section{\textbf{Results}}
+
+\subsection{Comparative Benchmark}
+
+The comparative results are summarized in Table~\ref{tab:benchmark} and visualized in Fig.~\ref{fig:model_comparison}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} \\
+\midrule
+\multicolumn{4}{l}{\textit{MFCC + Classical ML}} \\
+\quad MFCC+SVM       & 0.6366 & 0.6374 & 0.6364 \\
+\quad MFCC+RF        & 0.6475 & 0.6463 & 0.6477 \\
+\quad MFCC+XGBoost   & 0.6439 & 0.6425 & 0.6439 \\
+\midrule
+\multicolumn{4}{l}{\textit{WavLM + Classical ML}} \\
+\quad WavLM+LogReg   & 0.5713 & 0.5705 & 0.5701 \\
+\quad WavLM+SVM      & 0.6309 & 0.6307 & 0.6307 \\
+\midrule
+\multicolumn{4}{l}{\textit{End-to-End Deep Learning}} \\
+\quad ECAPA-TDNN     & 0.6137 & 0.6131 & 0.6098 \\
+\midrule
+\multicolumn{4}{l}{\textit{DFAT Hybrid Fusion (Proposed)}} \\
+\quad DFAT Late Fusion & \textbf{0.7176} & \textbf{0.7166} & \textbf{0.7178} \\
+\bottomrule
+\end{tabular}
+\caption{Comparative benchmark on the same held-out test set (nominally 528 samples). wF1 = Weighted F1, mF1 = Macro F1. All results are leak-free.}
+\label{tab:benchmark}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{report_images/model_comparison.png}
+    \caption{Performance comparison (Weighted F1-Score) across all evaluated methods on the test set.}
+    \label{fig:model_comparison}
+\end{figure}
+
+\subsection{Per-Class Performance}
+
+The per-class performance is detailed in Table~\ref{tab:perclass}. The corresponding confusion matrices for ECAPA-TDNN and the proposed DFAT Late Fusion Ensemble are illustrated in Fig.~\ref{fig:confusion_matrices}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccr}
+\toprule
+\textbf{Emotion} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Sup.} \\
+\midrule
+\multicolumn{5}{l}{\textit{ECAPA-TDNN}} \\
+Angry   & 0.789 & 0.714 & 0.750 & 147 \\
+Happy   & 0.516 & 0.642 & 0.572 & 123 \\
+Neutral & 0.497 & 0.520 & 0.508 & 150 \\
+Sad     & 0.706 & 0.556 & 0.622 & 108 \\
+\midrule
+\multicolumn{5}{l}{\textit{DFAT Late Fusion Ensemble}} \\
+Angry   & 0.789 & 0.789 & 0.789 & 147 \\
+Happy   & 0.716 & 0.593 & 0.649 & 123 \\
+Neutral & 0.626 & 0.760 & 0.687 & 150 \\
+Sad     & 0.784 & 0.704 & 0.741 & 108 \\
+\bottomrule
+\end{tabular}
+\caption{Per-class performance comparison between ECAPA-TDNN and DFAT Late Fusion Ensemble on the test set}
+\label{tab:perclass}
+\end{table}
+
+\begin{figure*}[t]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{report_images/confusion_matrix_ecapa.png}
+        \caption{ECAPA-TDNN Confusion Matrix}
+        \label{fig:cm_ecapa}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{report_images/confusion_matrix_dfat.png}
+        \caption{DFAT Late Fusion (Proposed) Confusion Matrix}
+        \label{fig:cm_dfat}
+    \end{subfigure}
+    \caption{Confusion matrices on the held-out test set (nominally 528 samples).}
+    \label{fig:confusion_matrices}
+\end{figure*}
+
+\subsection{Computational Cost}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Parameters} & \textbf{Latency} \\
+\midrule
+MFCC+SVM       & N/A (kernel)   & 0.12 ms \\
+MFCC+RF        & N/A (300 trees) & 0.10 ms \\
+MFCC+XGBoost   & N/A (300 trees) & $<$0.01 ms \\
+WavLM+LogReg   & 94M (frozen)   & $<$0.01 ms \\
+WavLM+SVM      & 94M (frozen)   & 1.19 ms \\
+ECAPA-TDNN     & $\sim$1M       & GPU-bound \\
+DFAT Ensemble  & 94M+244M (frozen) & GPU-bound \\
+\bottomrule
+\end{tabular}
+\caption{Computational cost comparison. Latency excludes feature extraction time for embedding-based methods.}
+\label{tab:compute}
+\end{table}
+
+\section{\textbf{Discussion}}
+
+\subsection{RQ1: MFCC vs. SSL Embeddings}
+Contrary to expectations, MFCC-based classifiers (best: MFCC+RF at wF1 0.6475) outperform WavLM-based classifiers (best: WavLM+SVM at wF1 0.6309) when paired with the same type of classical ML classifiers (see Fig.~\ref{fig:model_comparison}). This suggests that on this particular dataset and evaluation protocol, the mean-pooled WavLM embeddings may lose temporal information relevant to emotion, while MFCC statistics capture local spectral characteristics effectively. Under the current protocol, the advantage of pretrained SSL representations is not evident when used with simple classifiers.
+
+\subsection{RQ2: Per-Class Stability}
+WavLM+SVM shows stronger per-class balance (Angry F1 0.734, Neutral F1 0.542) compared to MFCC+RF (Angry F1 0.697, Neutral F1 0.618), with WavLM performing notably better on Angry but worse on Neutral and Sad. The result indicates that neither feature representation dominates across all emotion classes under simple classification.
+
+\subsection{RQ3: ASR-Assisted Fusion}
+DFAT Late Fusion Ensemble (wF1 0.7176) achieves a +7.0 percentage point improvement over the best audio-only baseline (MFCC+RF at 0.6475) and +10.4 pp over ECAPA-TDNN (0.6137). The improvement is particularly pronounced for Neutral (DFAT F1 0.687 vs. ECAPA 0.508, $\Delta$=+17.9 pp), which is acoustically ambiguous and benefits most from the linguistic cues provided by Whisper encoder embeddings (as shown in the confusion matrices in Fig.~\ref{fig:confusion_matrices}). This suggests that ASR-derived linguistic features provide complementary information that acoustic features alone cannot capture.
+
+\subsection{RQ4: Performance vs. Compute Trade-Off}
+MFCC+RF offers the best cost-efficiency ratio among baselines: competitive accuracy (wF1 0.6475) with sub-millisecond inference and no GPU requirement for feature extraction. DFAT achieves superior accuracy but requires two large pretrained models (WavLM 94M + Whisper 244M parameters) for feature extraction, making it suitable for offline or batch-processing scenarios rather than real-time deployment on edge devices.
+
+\section{\textbf{Limitations}}
+\label{sec:limitations}
+
+\begin{enumerate}
+    \item \textbf{Speaker-dependent split}: ViSEC's speaker distribution is highly long-tailed (Speaker 0 contributes 42\% of all samples). A speaker-independent split is not practical under this distribution for maintaining stable class proportions and fair cross-model comparison. Our sample-level stratified split may overestimate performance due to speaker leakage.
+    \item \textbf{Single-run evaluation}: Results are reported from a single run with fixed seed. Multi-seed evaluation with confidence intervals would strengthen the statistical reliability.
+    \item \textbf{ASR noise}: Whisper's word error rate on Vietnamese may introduce noise into the linguistic features. The impact of ASR quality on DFAT performance is not quantified.
+    \item \textbf{Dataset scale}: With 5,280 samples, ViSEC is moderate in size. Evaluation on larger Vietnamese SER corpora would improve generalizability claims.
+\end{enumerate}
+
+\section{\textbf{Conclusion}}
+
+This paper systematically evaluated seven approaches to Vietnamese speech emotion recognition on the ViSEC dataset under a strict leak-free evaluation protocol. Key findings:
+
+\begin{enumerate}
+    \item \textbf{DFAT Hybrid Fusion is the best overall method}, achieving wF1 0.7176 and accuracy 71.78\% through ASR-assisted audio-linguistic feature combination with optimized ensemble weighting.
+    \item \textbf{MFCC+RF is the best lightweight baseline} (wF1 0.6475), outperforming WavLM-based classifiers and ECAPA-TDNN on this dataset.
+    \item \textbf{ASR-assisted fusion provides substantial improvement}, particularly for acoustically ambiguous emotions (Neutral: +17.9 pp F1 over ECAPA-TDNN).
+    \item \textbf{Leak-free evaluation reveals lower absolute scores} than previously reported, underscoring the importance of strict Train/Val/Test separation in SER benchmarks.
+\end{enumerate}
+
+Future work should explore speaker-independent evaluation protocols on more balanced corpora, multi-seed robustness testing, fine-tuning of pretrained speech models on Vietnamese emotional speech, and neural fusion architectures beyond classical ensemble methods.
+
+\section{\textbf{Acknowledgements}}
+
+This project was developed using GPU infrastructure (NVIDIA RTX 5060 Ti) and benefited from open-source libraries including PyTorch~\cite{pytorch}, scikit-learn, Hugging Face Transformers, and Optuna~\cite{optuna}. The ViSEC dataset was provided by HUSTEP Lab.
+
+\begin{thebibliography}{}
+
+\bibitem{visec}
+HUSTEP Lab,
+``ViSEC: Vietnamese Speech Emotion Corpus,''
+Hugging Face Datasets,
+Available: \url{https://huggingface.co/datasets/hustep-lab/ViSEC}
+
+\bibitem{wavlm}
+S. Chen, C. Wang, Z. Chen, et al.,
+``WavLM: Large-Scale Self-Supervised Pre-training for Full Stack Speech Processing,''
+IEEE J. Sel. Topics Signal Process., vol.~16, no.~6, pp.~1505--1518, 2022.
+
+\bibitem{ecapa}
+B. Desplanques, J. Thienpondt, and K. Demuynck,
+``ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification,''
+Proc. Interspeech, pp.~3830--3834, 2020.
+
+\bibitem{whisper}
+A. Radford, J.~W. Kim, T. Xu, G. Brockman, C. McLeavey, and I. Sutskever,
+``Robust Speech Recognition via Large-Scale Weak Supervision,''
+Proc. ICML, vol.~202, pp.~28492--28518, 2023.
+
+\bibitem{wav2vec2}
+A. Baevski, Y. Zhou, A. Mohamed, and M. Auli,
+``wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations,''
+Proc. NeurIPS, vol.~33, pp.~12449--12460, 2020.
+
+\bibitem{hubert}
+W.-N. Hsu, B. Bolte, Y.-H.~H. Tsai, K. Lakhotia, R. Salakhutdinov, and A. Mohamed,
+``HuBERT: Self-Supervised Speech Representation Learning by Masked Prediction of Hidden Units,''
+IEEE/ACM Trans. Audio Speech Lang. Process., vol.~29, pp.~3451--3460, 2021.
+
+\bibitem{xgboost}
+T. Chen and C. Guestrin,
+``XGBoost: A Scalable Tree Boosting System,''
+Proc. ACM SIGKDD, pp.~785--794, 2016.
+
+\bibitem{ser_survey}
+M.~B. Akçay and K. Oğuz,
+``Speech Emotion Recognition: Emotional Models, Databases, Features, Preprocessing Methods, Supporting Modalities, and Classifiers,''
+Speech Communication, vol.~116, pp.~56--76, 2020.
+
+\bibitem{ser_multimodal}
+S. Poria, E. Cambria, R. Bajpai, and A. Hussain,
+``A Review of Affective Computing: From Unimodal Analysis to Multimodal Fusion,''
+Information Fusion, vol.~37, pp.~98--125, 2017.
+
+\bibitem{optuna}
+T. Akiba, S. Sano, T. Yanase, T. Ohta, and M. Koyama,
+``Optuna: A Next-Generation Hyperparameter Optimization Framework,''
+Proc. ACM SIGKDD, pp.~2623--2631, 2019.
+
+\bibitem{pytorch}
+A. Paszke, S. Gross, F. Massa, et al.,
+``PyTorch: An Imperative Style, High-Performance Deep Learning Library,''
+Proc. NeurIPS, vol.~32, pp.~8026--8037, 2019.
+
+\end{thebibliography}
+
+\end{document}
