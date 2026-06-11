@@ -90,7 +90,7 @@ model = AutoModelForAudioClassification.from_pretrained("superb/hubert-base-supe
 **Model**: `microsoft/wavlm-base-plus`
 - **Architecture**: Transformer-based speech model
 - **Training**: Custom classification head on WavLM features
-- **Features**: 1024-dim embeddings
+- **Features**: 768-dim embeddings
 - **Epochs**: 1 (quick training with pre-trained features)
 - **Pros**: State-of-the-art speech understanding
 
