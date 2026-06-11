@@ -1,6 +1,7 @@
 import json
+from pathlib import Path
 
-notebook_path = "/mnt/12bc61a2-ddc5-4be8-b8be-bbd99dc6d141/AI engineer/Study/Speech-Emotions-Recognition/SER.ipynb"
+notebook_path = Path(__file__).parent / "SER.ipynb"
 
 with open(notebook_path, 'r', encoding='utf-8') as f:
     nb = json.load(f)

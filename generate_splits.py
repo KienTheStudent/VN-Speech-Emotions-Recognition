@@ -41,25 +41,63 @@ def main():
     print(f"\nSpeaker count: {df['speaker_id'].nunique()}")
 
     # ------------------------------------------------------------------
-    # 2. Stratified split: 80% train, 10% val, 10% test
+    # 2. Greedy Speaker-Independent Split (80/10/10)
     # ------------------------------------------------------------------
-    # First split: 80% train vs 20% remaining
-    indices = list(range(len(df)))
-    train_idx, remaining_idx = train_test_split(
-        indices,
-        test_size=0.2,
-        random_state=RANDOM_STATE,
-        stratify=df["emotion"].values,
-    )
+    print("\nApplying greedy speaker-independent split...")
+    target_train = int(0.8 * len(df))
+    target_val = int(0.1 * len(df))
+    target_test = len(df) - target_train - target_val
 
-    # Second split: 50/50 on the remaining 20% → 10% val, 10% test
-    remaining_emotions = df["emotion"].values[remaining_idx]
-    val_idx, test_idx = train_test_split(
-        remaining_idx,
-        test_size=0.5,
-        random_state=RANDOM_STATE,
-        stratify=remaining_emotions,
-    )
+    train_idx, val_idx, test_idx = [], [], []
+    train_counts = {e: 0 for e in df["emotion"].unique()}
+    val_counts = {e: 0 for e in df["emotion"].unique()}
+    test_counts = {e: 0 for e in df["emotion"].unique()}
+
+    global_dist = df["emotion"].value_counts(normalize=True).to_dict()
+
+    speaker_stats = []
+    for spk, group in df.groupby('speaker_id'):
+        speaker_stats.append({
+            'speaker_id': spk,
+            'count': len(group),
+            'indices': group.index.tolist(),
+            'emotions': group['emotion'].value_counts().to_dict()
+        })
+    # Sort speakers by count descending (Speaker 0 is huge and goes first)
+    speaker_stats.sort(key=lambda x: x['count'], reverse=True)
+
+    def compute_cost(current_len, target_len, current_emotions, spk_emotions):
+        new_len = current_len + sum(spk_emotions.values())
+        if new_len > target_len:
+            # Heavily penalize going over target size
+            size_penalty = 1000 * (new_len - target_len) / target_len
+        else:
+            size_penalty = 0
+            
+        dist_loss = 0
+        for e, target_prop in global_dist.items():
+            new_prop = (current_emotions.get(e, 0) + spk_emotions.get(e, 0)) / new_len if new_len > 0 else 0
+            dist_loss += abs(new_prop - target_prop)
+        return dist_loss + size_penalty
+
+    for spk in speaker_stats:
+        costs = [
+            ('train', compute_cost(len(train_idx), target_train, train_counts, spk['emotions'])),
+            ('val', compute_cost(len(val_idx), target_val, val_counts, spk['emotions'])),
+            ('test', compute_cost(len(test_idx), target_test, test_counts, spk['emotions']))
+        ]
+        
+        best_split = min(costs, key=lambda x: x[1])[0]
+        
+        if best_split == 'train':
+            train_idx.extend(spk['indices'])
+            for e, c in spk['emotions'].items(): train_counts[e] = train_counts.get(e, 0) + c
+        elif best_split == 'val':
+            val_idx.extend(spk['indices'])
+            for e, c in spk['emotions'].items(): val_counts[e] = val_counts.get(e, 0) + c
+        else:
+            test_idx.extend(spk['indices'])
+            for e, c in spk['emotions'].items(): test_counts[e] = test_counts.get(e, 0) + c
 
     print(f"\nSplit sizes:")
     print(f"  Train: {len(train_idx)} ({len(train_idx)/len(df)*100:.1f}%)")
@@ -78,7 +116,15 @@ def main():
     assert len(val_set & test_set) == 0, "Val/Test overlap detected!"
     assert len(train_set) + len(val_set) + len(test_set) == len(df), \
         "Split sizes don't add up!"
-    print("\n✓ No overlap between splits. Integrity verified.")
+
+    train_speakers = set(df.iloc[train_idx]["speaker_id"])
+    val_speakers = set(df.iloc[val_idx]["speaker_id"])
+    test_speakers = set(df.iloc[test_idx]["speaker_id"])
+    assert len(train_speakers & val_speakers) == 0, "Train/Val speaker overlap detected!"
+    assert len(train_speakers & test_speakers) == 0, "Train/Test speaker overlap detected!"
+    assert len(val_speakers & test_speakers) == 0, "Val/Test speaker overlap detected!"
+
+    print("\n✓ No sample or speaker overlap between splits. Integrity verified.")
 
     # ------------------------------------------------------------------
     # 4. Verify stratification
@@ -103,8 +149,8 @@ def main():
         "dataset": "hustep-lab/ViSEC",
         "total_samples": len(df),
         "random_state": RANDOM_STATE,
-        "split_ratio": "80/10/10",
-        "stratify_by": "emotion",
+        "split_ratio": "80/10/10 (approx)",
+        "stratify_by": "speaker_independent",
         "train_indices": sorted(train_idx),
         "val_indices": sorted(val_idx),
         "test_indices": sorted(test_idx),

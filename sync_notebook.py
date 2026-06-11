@@ -1,49 +1,34 @@
 import json
-import os
+from pathlib import Path
 
-notebook_path = "SER.ipynb"
+notebook_path = Path(__file__).parent / "SER.ipynb"
 
-# Define new cell contents
-cell_config = """# ==================== SER SYSTEM CONFIGURATION ====================
-# MODE has 2 options:
-# - "demo": Run super fast, automatically load saved benchmark results (benchmark_results_gpu.json)
-#           and trained models/checkpoints (best_ecapa_model.pth, dualstream_model/*.pkl).
-#           Evaluate (Inference) on the leak-free Test set and plot charts/confusion matrices immediately.
-# - "retrain": Retrain all models from scratch (Classical ML, ECAPA-TDNN, DFAT Hybrid Fusion)
-#              on the full dataset (5,280 samples) using the shared split_manifest.json.
-MODE = "demo" # Change to "retrain" to retrain from scratch
+# Define cell contents
+cell_intro = """# Vietnamese Speech Emotion Recognition (SER) - Live Inference & Evaluation
 
-import warnings
-warnings.filterwarnings('ignore')
+This notebook demonstrates the end-to-end inference and evaluation pipeline for the proposed Speech Emotion Recognition models on the ViSEC dataset. It operates strictly on the held-out Test set as defined by the speaker-independent `split_manifest.json`.
+
+**Prerequisites:**
+You must have already run `generate_splits.py` to create the manifest, and trained the models using their respective scripts to generate the checkpoints.
 """
 
-cell_install = """# ==================== INSTALL REQUIRED LIBRARIES ====================
-!pip install datasets librosa soundfile transformers torch torchaudio scikit-learn xgboost optuna openai-whisper speechbrain -q
-"""
-
-cell_data_prep = """# ==================== PART 1: LOAD DATA & LEAK-FREE SPLIT ====================
-print("📥 LOADING VISEC DATASET AND READING LEAK-FREE MANIFEST...")
-
+cell_setup = """# ==================== 1. SETUP & LOAD MANIFEST ====================
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd
-import matplotlib
-if not any('ipykernel' in arg for arg in sys.argv) and not hasattr(sys, 'ps1'):
-    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+import torch
 from datasets import load_dataset
 from sklearn.preprocessing import LabelEncoder
-
-# Add root directory to sys.path for importing
-sys.path.append(os.path.abspath("."))
+import warnings
+warnings.filterwarnings('ignore')
 
 # Load original dataset
 print("Loading ViSEC dataset...")
-dataset = load_dataset("hustep-lab/ViSEC", trust_remote_code=True)
-df = dataset['train'].to_pandas()
+dataset = load_dataset("hustep-lab/ViSEC", split="train", trust_remote_code=True)
+df = dataset.to_pandas()
 
 # Encode labels
 le = LabelEncoder()
@@ -51,476 +36,159 @@ df['label'] = le.fit_transform(df['emotion'])
 emotion_labels = le.classes_.tolist()
 num_labels = len(emotion_labels)
 
-# Read fixed split_manifest.json as the single source of truth
+# Read speaker-independent split_manifest.json
 manifest_path = "split_manifest.json"
 if not os.path.exists(manifest_path):
-    print("split_manifest.json not found, please run generate_splits.py first.")
-    raise FileNotFoundError("Missing split_manifest.json")
+    raise FileNotFoundError("Missing split_manifest.json. Run generate_splits.py first.")
 
 with open(manifest_path, 'r', encoding='utf-8') as f:
     manifest = json.load(f)
 
-train_idx = manifest['train_indices']
-val_idx = manifest['val_indices']
 test_idx = manifest['test_indices']
-
-# Assign train/val/test data variables
-X_train = df['path'].iloc[train_idx].values
-y_train = df['label'].iloc[train_idx].values
-X_val = df['path'].iloc[val_idx].values
-y_val = df['label'].iloc[val_idx].values
 X_test = df['path'].iloc[test_idx].values
 y_test = df['label'].iloc[test_idx].values
 
-# Classical ML merges Train + Val
-X_trainval = df['path'].iloc[list(train_idx) + list(val_idx)].values
-y_trainval = df['label'].iloc[list(train_idx) + list(val_idx)].values
-
-print(f"✓ Manifest loaded: {manifest['total_samples']} samples")
-print(f"  - Train: {len(X_train)} samples")
-print(f"  - Val:   {len(X_val)} samples")
-print(f"  - Test:  {len(X_test)} samples")
+print(f"✓ Manifest loaded: {manifest['total_samples']} samples total")
+print(f"✓ Test set strictly isolated: {len(X_test)} samples")
 """
 
-cell_svm_mfcc = """# ==================== PART 2: MODEL 1 - SVM with MFCC ====================
-print("🤖 MODEL 1: SVM with MFCC Features")
+cell_ecapa = """# ==================== 2. EVALUATE ECAPA-TDNN ====================
+import sys
+sys.path.append(os.path.abspath("./ECAPA"))
+from predict_emotion import EmotionClassifier
+from train_emotion_model import prepare_features, AudioFeaturesDataset, collate_fn, evaluate
+from torch.utils.data import DataLoader
+from sklearn.metrics import f1_score, accuracy_score, confusion_matrix
 
-from benchmark_methods_gpu import load_audio, mfcc_feature, evaluate_method
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix
-import time
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+ecapa_model = EmotionClassifier(num_labels).to(device)
 
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
+checkpoint_path = "./ECAPA/emotion_model/best_ecapa_model.pth"
+if not os.path.exists(checkpoint_path):
+    print(f"❌ ECAPA checkpoint not found at {checkpoint_path}. Please retrain.")
+else:
+    print(f"✨ Loading ECAPA-TDNN model from {checkpoint_path}...")
+    ecapa_model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+    ecapa_model.eval()
     
-    res = next(r for r in bench_res['ranked_results'] if r['method'] == 'MFCC+SVM')
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
+    print("Extracting Mel-spectrogram features for Test set (this takes a moment)...")
+    X_test_feat, y_test_clean = prepare_features(X_test, y_test, "Test")
+    test_dataset = AudioFeaturesDataset(X_test_feat, y_test_clean)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
     
-    cm = np.array(res['confusion_matrix'])
+    print("Running Inference...")
+    test_preds, test_labels_out = evaluate(ecapa_model, test_loader, device)
+    
+    ecapa_f1_weighted = f1_score(test_labels_out, test_preds, average='weighted')
+    ecapa_acc = accuracy_score(test_labels_out, test_preds)
+    
+    print(f"\\n✓ ECAPA-TDNN Test Accuracy: {ecapa_acc:.4f}")
+    print(f"✓ ECAPA-TDNN Test F1 (weighted): {ecapa_f1_weighted:.4f}")
+    
+    cm = confusion_matrix(test_labels_out, test_preds)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=emotion_labels, yticklabels=emotion_labels)
-    plt.title("SVM Confusion Matrix (Test Set)")
+    plt.title("ECAPA-TDNN Confusion Matrix (Test Set)")
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
     plt.show()
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    mfcc_train, mfcc_y_train = [], []
-    for p, y in zip(X_trainval, y_trainval):
-        audio = load_audio(p)
-        if audio is not None:
-            mfcc_train.append(mfcc_feature(audio))
-            mfcc_y_train.append(y)
-            
-    mfcc_test, mfcc_y_test = [], []
-    for p, y in zip(X_test, y_test):
-        audio = load_audio(p)
-        if audio is not None:
-            mfcc_test.append(mfcc_feature(audio))
-            mfcc_y_test.append(y)
-            
-    scaler = StandardScaler()
-    mfcc_train = scaler.fit_transform(mfcc_train)
-    mfcc_test = scaler.transform(mfcc_test)
-    
-    clf = SVC(kernel="rbf", C=10.0, gamma="scale", random_state=42)
-    res = evaluate_method("MFCC+SVM", clf, mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, emotion_labels)
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
 """
 
-cell_rf_mfcc = """# ==================== PART 3: MODEL 2 - Random Forest with MFCC ====================
-print("🤖 MODEL 2: Random Forest with MFCC Features")
-
-from sklearn.ensemble import RandomForestClassifier
-
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next(r for r in bench_res['ranked_results'] if r['method'] == 'MFCC+RandomForest')
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    clf = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
-    res = evaluate_method("MFCC+RandomForest", clf, mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, emotion_labels)
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-"""
-
-cell_xgb_mfcc = """# ==================== PART 4: MODEL 3 - XGBoost with MFCC ====================
-print("🤖 MODEL 3: XGBoost with MFCC Features")
-
-from xgboost import XGBClassifier
-
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next(r for r in bench_res['ranked_results'] if r['method'] == 'MFCC+XGBoost')
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    clf = XGBClassifier(n_estimators=300, max_depth=8, learning_rate=0.08,
-                        subsample=0.9, colsample_bytree=0.9, random_state=42, eval_metric="mlogloss")
-    res = evaluate_method("MFCC+XGBoost", clf, mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, emotion_labels)
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-"""
-
-cell_wavlm = """# ==================== PART 5: MODEL 4 - WavLM Baseline ====================
-print("🤖 MODEL 4: WavLM Feature Extractor + SVM / LogReg")
-
-from transformers import AutoFeatureExtractor, AutoModel
-import torch
-from benchmark_methods_gpu import wavlm_feature
-
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next((r for r in bench_res['ranked_results'] if r['method'] == 'WavLM+SVM'), None)
-    if res:
-        print(f"✓ WavLM+SVM F1 Score (Weighted): {res['f1_weighted']:.4f}")
-        print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Extracting WavLM embeddings on {device}...")
-    extractor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-    wavlm = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
-    
-    wavlm_train, wavlm_y_train = [], []
-    for p, y in zip(X_trainval, y_trainval):
-        audio = load_audio(p)
-        if audio is not None:
-            wavlm_train.append(wavlm_feature(audio, extractor, wavlm, device))
-            wavlm_y_train.append(y)
-            
-    wavlm_test, wavlm_y_test = [], []
-    for p, y in zip(X_test, y_test):
-        audio = load_audio(p)
-        if audio is not None:
-            wavlm_test.append(wavlm_feature(audio, extractor, wavlm, device))
-            wavlm_y_test.append(y)
-            
-    scaler = StandardScaler()
-    wavlm_train = scaler.fit_transform(wavlm_train)
-    wavlm_test = scaler.transform(wavlm_test)
-    
-    clf = SVC(kernel="rbf", C=5.0, gamma="scale", random_state=42)
-    res = evaluate_method("WavLM+SVM", clf, wavlm_train, wavlm_y_train, wavlm_test, wavlm_y_test, emotion_labels)
-    print(f"✓ WavLM+SVM F1 Score (Weighted): {res['f1_weighted']:.4f}")
-"""
-
-cell_ecapa = """# ==================== PART 6: ECAPA-TDNN ====================
-print("🤖 CREATING AND TRAINING ECAPA-TDNN MODEL")
-
-import sys
-sys.path.append(os.path.abspath("./ECAPA"))
-from train_emotion_model import prepare_features, AudioFeaturesDataset, collate_fn, train_epoch, evaluate
-from predict_emotion import ECAPA_TDNN, EmotionClassifier
-from torch.utils.data import DataLoader
-import torch.nn as nn
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = EmotionClassifier(num_labels).to(device)
-
-if MODE == "demo":
-    checkpoint_path = "./ECAPA/best_ecapa_model.pth" if os.path.exists("./ECAPA/best_ecapa_model.pth") else "./ECAPA/emotion_model/best_ecapa_model.pth"
-    if os.path.exists(checkpoint_path):
-        print(f"✨ DEMO MODE: Found checkpoint {checkpoint_path}, loading model...")
-        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-        
-        print("Extracting features for Test set...")
-        X_test_feat, y_test_clean = prepare_features(X_test, y_test, "Test")
-        test_dataset = AudioFeaturesDataset(X_test_feat, y_test_clean)
-        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
-        
-        test_preds, test_labels = evaluate(model, test_loader, device)
-        from sklearn.metrics import f1_score, accuracy_score
-        test_f1_weighted = f1_score(test_labels, test_preds, average='weighted')
-        print(f"✓ Final test F1 (weighted): {test_f1_weighted:.4f}")
-        
-        cm = confusion_matrix(test_labels, test_preds)
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=emotion_labels, yticklabels=emotion_labels)
-        plt.title("ECAPA-TDNN Confusion Matrix")
-        plt.show()
-    else:
-        print("❌ ECAPA-TDNN checkpoint not found. Please switch to MODE = 'retrain'.")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    # Standard training loop from codebase
-    print("Extracting features...")
-    X_train_feat, y_train_clean = prepare_features(X_train, y_train, "Train")
-    X_val_feat, y_val_clean = prepare_features(X_val, y_val, "Val")
-    X_test_feat, y_test_clean = prepare_features(X_test, y_test, "Test")
-
-    train_dataset = AudioFeaturesDataset(X_train_feat, y_train_clean)
-    val_dataset = AudioFeaturesDataset(X_val_feat, y_val_clean)
-    
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
-    
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0003, weight_decay=0.0001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
-    
-    num_epochs = 20 # Shortened for notebook
-    best_val_f1 = 0
-    from sklearn.metrics import f1_score
-    for epoch in range(num_epochs):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, epoch)
-        val_preds, val_labels = evaluate(model, val_loader, device)
-        val_f1 = f1_score(val_labels, val_preds, average='weighted')
-        if epoch >= 2: scheduler.step(val_f1)
-        print(f"Epoch {epoch+1}: Train Loss: {train_loss:.4f}, Val F1: {val_f1:.4f}")
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            torch.save(model.state_dict(), './ECAPA/best_ecapa_model.pth')
-            print(f"  ✓ New best val F1: {best_val_f1:.4f} — checkpoint saved")
-    
-    # Load best model for final evaluation
-    if best_val_f1 > 0:
-        model.load_state_dict(torch.load('./ECAPA/best_ecapa_model.pth', map_location=device, weights_only=True))
-        print(f"\n✓ Best model loaded (Val F1: {best_val_f1:.4f})")
-"""
-
-cell_compare = """# ==================== PART 7: SUMMARY COMPARISON TABLE ====================
-print("📊 SUMMARY COMPARISON TABLE")
-
-if os.path.exists("benchmark_results_gpu.json"):
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    methods = []
-    f1s = []
-    lats = []
-    accs = []
-    for r in bench_res['ranked_results']:
-        methods.append(r['method'])
-        f1s.append(r['f1_weighted'])
-        lats.append(r['latency_ms_per_sample'])
-        accs.append(r['accuracy'])
-        
-    comparison_df = pd.DataFrame({
-        'Model': methods,
-        'F1 Score': f1s,
-        'Latency (ms)': lats,
-        'Accuracy': accs
-    })
-    
-    print()
-    print(comparison_df.to_string(index=False))
-    
-    # Plot comparison charts
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 5))
-    ax1.barh(comparison_df['Model'], comparison_df['F1 Score'], color='skyblue')
-    ax1.set_xlabel('F1 Score')
-    ax1.set_title('F1 Score Comparison')
-    ax1.set_xlim([0, 1])
-    
-    ax2.barh(comparison_df['Model'], comparison_df['Latency (ms)'], color='salmon')
-    ax2.set_xlabel('Latency (ms/sample)')
-    ax2.set_title('Latency Comparison')
-    
-    ax3.barh(comparison_df['Model'], comparison_df['Accuracy'], color='lime')
-    ax3.set_xlabel('Accuracy')
-    ax3.set_title('Accuracy Comparison')
-    
-    plt.tight_layout()
-    plt.show()
-else:
-    print("Please run the full benchmark to display the comparison table.")
-"""
-
-cell_dfat = """# ==================== PART 8: DFAT HYBRID FUSION ====================
-print("🤖 DFAT HYBRID FUSION: WavLM + Whisper")
-
-import sys
+cell_dfat = """# ==================== 3. EVALUATE DFAT HYBRID FUSION ====================
 sys.path.append(os.path.abspath("./DFAT Hybrid Fusion"))
-from train_dualstream import extract_features_for_split
-from transformers import AutoFeatureExtractor, AutoModel, WhisperProcessor, WhisperForConditionalGeneration
 import pickle
+from transformers import AutoFeatureExtractor, AutoModel, WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer
 
-model_dir = "./DFAT Hybrid Fusion/dualstream_model"
-
-if MODE == "demo":
-    metadata_path = os.path.join(model_dir, "metadata.json")
-    if os.path.exists(metadata_path):
-        print(f"✨ DEMO MODE: Found model in {model_dir}, loading model...")
-        with open(metadata_path, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
-        
-        print(f"✓ Ensemble F1 Score (Weighted): {metadata['test_f1_weighted']:.4f}")
-        
-        cm = np.array(metadata['confusion_matrix'])
-        plt.figure(figsize=(6, 5))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=emotion_labels, yticklabels=emotion_labels)
-        plt.title("DFAT Hybrid Fusion Confusion Matrix")
-        plt.show()
-    else:
-        print("❌ DFAT model not found. Please switch to MODE = 'retrain'.")
+model_dir = Path("./DFAT Hybrid Fusion/dualstream_model")
+if not (model_dir / "metadata.json").exists():
+    print("❌ DFAT models not found. Please run train_dualstream.py first.")
 else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Loading WavLM & Whisper...")
+    print("✨ Loading Ensemble Models and Weights...")
+    with open(model_dir / "lr_model.pkl", "rb") as f: lr_model = pickle.load(f)
+    with open(model_dir / "rf_model.pkl", "rb") as f: rf_model = pickle.load(f)
+    with open(model_dir / "xgb_model.pkl", "rb") as f: xgb_model = pickle.load(f)
+    with open(model_dir / "scaler.pkl", "rb") as f: scaler = pickle.load(f)
+    with open(model_dir / "metadata.json", "r") as f: metadata = json.load(f)
+    
+    w_xgb, w_rf, w_lr = metadata["ensemble_weights"]["xgb"], metadata["ensemble_weights"]["rf"], metadata["ensemble_weights"]["lr"]
+    print(f"Ensemble Weights -> XGB: {w_xgb:.3f}, RF: {w_rf:.3f}, LR: {w_lr:.3f}")
+    
+    print("\\nLoading Extractors (WavLM, Whisper, PhoBERT)...")
     wavlm_processor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
     wavlm_model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
+    
     whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-small")
     whisper_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small").to(device).eval()
     
-    print("Extracting Test features...")
+    phobert_tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
+    phobert_model = AutoModel.from_pretrained("vinai/phobert-base-v2").to(device).eval()
+    
+    from train_dualstream import extract_features_for_split
+    
+    print("\\nExtracting Dual-Stream Features for Test Set (this will take several minutes)...")
+    # This invokes audio loading, Whisper ASR, Underthesea word segmentation, and PhoBERT embedding.
+    # It automatically uses transcript_cache.json if available.
     test_fused, test_labels_ext = extract_features_for_split(
-        X_test, y_test, wavlm_model, wavlm_processor, whisper_model, whisper_processor, device, "Test"
+        X_test, y_test, wavlm_model, wavlm_processor, whisper_model, whisper_processor, 
+        phobert_model, phobert_tokenizer, device, "Test"
     )
-    # Shortened training process for notebook, focusing on existing code in the python script
-    print("Please refer to train_dualstream.py to see the full leak-free Optuna tuning process.")
+    
+    # Scale features
+    test_fused_scaled = scaler.transform(test_fused)
+    
+    print("\\nRunning Late Fusion Ensemble Inference...")
+    lr_proba = lr_model.predict_proba(test_fused_scaled)
+    rf_proba = rf_model.predict_proba(test_fused_scaled)
+    xgb_proba = xgb_model.predict_proba(test_fused_scaled)
+    
+    ensemble_proba = w_xgb * xgb_proba + w_rf * rf_proba + w_lr * lr_proba
+    ensemble_pred = np.argmax(ensemble_proba, axis=1)
+    
+    dfat_f1_weighted = f1_score(test_labels_ext, ensemble_pred, average="weighted")
+    dfat_acc = accuracy_score(test_labels_ext, ensemble_pred)
+    
+    print(f"\\n✓ DFAT Hybrid Fusion Test Accuracy: {dfat_acc:.4f}")
+    print(f"✓ DFAT Hybrid Fusion Test F1 (weighted): {dfat_f1_weighted:.4f}")
+    
+    cm = confusion_matrix(test_labels_ext, ensemble_pred)
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=emotion_labels, yticklabels=emotion_labels)
+    plt.title("DFAT Hybrid Fusion Confusion Matrix (Test Set)")
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.show()
 """
 
-# Build clean, English-only notebook structure from scratch
+# Build clean notebook structure
 cells = [
     {
         "cell_type": "markdown",
         "metadata": {},
-        "source": [
-            "# Speech Emotion Recognition (SER) on ViSEC Dataset\n",
-            "\n",
-            "This notebook runs the full comparative benchmarking pipeline for Vietnamese Speech Emotion Recognition on the ViSEC dataset."
-        ]
+        "source": [line + "\\n" for line in cell_intro.split("\\n")][:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\n" for line in cell_config.split("\n")][:-1]
+        "source": [line + "\\n" for line in cell_setup.split("\\n")][:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\n" for line in cell_install.split("\n")][:-1]
+        "source": [line + "\\n" for line in cell_ecapa.split("\\n")][:-1]
     },
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
-        "source": [line + "\n" for line in cell_data_prep.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 1: SVM with MFCC Features"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_svm_mfcc.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 2: Random Forest with MFCC Features"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_rf_mfcc.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 3: XGBoost with MFCC Features"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_xgb_mfcc.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 4: WavLM Baseline"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_wavlm.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 5: ECAPA-TDNN"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_ecapa.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model Comparison"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_compare.split("\n")][:-1]
-    },
-    {
-        "cell_type": "markdown",
-        "metadata": {},
-        "source": [
-            "## Model 6: DFAT Hybrid Fusion (Proposed Method)"
-        ]
-    },
-    {
-        "cell_type": "code",
-        "execution_count": None,
-        "metadata": {},
-        "outputs": [],
-        "source": [line + "\n" for line in cell_dfat.split("\n")][:-1]
+        "source": [line + "\\n" for line in cell_dfat.split("\\n")][:-1]
     }
 ]
 
-# Write to notebook
 nb = {
     "cells": cells,
     "metadata": {
@@ -535,4 +203,4 @@ nb = {
 with open(notebook_path, 'w', encoding='utf-8') as f:
     json.dump(nb, f, indent=1, ensure_ascii=False)
 
-print("Notebook synchronized successfully!")
+print(f"Notebook synchronized successfully to {notebook_path}")
