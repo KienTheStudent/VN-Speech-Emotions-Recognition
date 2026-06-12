@@ -2,12 +2,12 @@
 print("🤖 DFAT HYBRID FUSION: WavLM + Whisper")
 
 import sys
-sys.path.append(os.path.abspath("./DFAT Hybrid Fusion"))
+sys.path.append(os.path.abspath("./DFAT_Hybrid_Fusion"))
 from train_dualstream import extract_features_for_split
 from transformers import AutoFeatureExtractor, AutoModel, WhisperProcessor, WhisperForConditionalGeneration
 import pickle
 
-model_dir = "./DFAT Hybrid Fusion/dualstream_model"
+model_dir = "./DFAT_Hybrid_Fusion/dualstream_model"
 
 if MODE == "demo":
     metadata_path = os.path.join(model_dir, "metadata.json")
