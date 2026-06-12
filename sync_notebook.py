@@ -96,11 +96,11 @@ else:
 """
 
 cell_dfat = """# ==================== 3. EVALUATE DFAT HYBRID FUSION ====================
-sys.path.append(os.path.abspath("./DFAT Hybrid Fusion"))
+sys.path.append(os.path.abspath("./DFAT_Hybrid_Fusion"))
 import pickle
 from transformers import AutoFeatureExtractor, AutoModel, WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer
 
-model_dir = Path("./DFAT Hybrid Fusion/dualstream_model")
+model_dir = Path("./DFAT_Hybrid_Fusion/dualstream_model")
 if not (model_dir / "metadata.json").exists():
     print("❌ DFAT models not found. Please run train_dualstream.py first.")
 else:
