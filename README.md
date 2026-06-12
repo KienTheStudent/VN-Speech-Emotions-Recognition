@@ -38,17 +38,29 @@ Additional baselines (MFCC+SVM, MFCC+XGBoost, WavLM+LogReg, WavLM+SVM) are inclu
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| MFCC+RandomForest | Secondary | 0.6475 | 0.6463 | 0.6477 | — |
-| MFCC+XGBoost | Secondary | 0.6439 | 0.6425 | 0.6439 | — |
-| MFCC+SVM | Secondary | 0.6366 | 0.6374 | 0.6364 | — |
-| WavLM+SVM | Secondary | 0.6309 | 0.6307 | 0.6307 | — |
-| WavLM+LogReg | Secondary | 0.5713 | 0.5705 | 0.5701 | — |
+| **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | GPU-bound |
+| **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | GPU-bound |
+| **MFCC+RandomForest** | **Primary** | 0.3651 ± 0.0094 | 0.3513 | 0.3939 | 3.23 ms |
+| WavLM+LogReg | Secondary | 0.4656 | 0.4574 | 0.4640 | 8.73 ms |
+| WavLM+SVM | Secondary | 0.4509 ± 0.0000 | 0.4506 | 0.4527 | 9.96 ms |
+| MFCC+XGBoost | Secondary | 0.3946 ± 0.0103 | 0.3878 | 0.4061 | 3.17 ms |
+| MFCC+SVM | Secondary | 0.3662 | 0.3590 | 0.3674 | 3.28 ms |
 <!-- END_BENCHMARK_TABLE -->
 
 ### DFAT Ablation Study
 
 <!-- START_ABLATION_TABLE -->
-
+| Configuration | Ensemble wF1 | Ensemble mF1 | Acc |
+|---------------|-------------|-------------|-----|
+| Acoustic-only (WavLM) | 0.4329 | 0.4278 | 0.4356 |
+| Linguistic-only (Whisper-small + PhoBERT) | 0.3364 | 0.3349 | 0.3447 |
+| Early Fusion (Concat 1536-d) | 0.3995 | 0.3937 | 0.3996 |
+| Late Fusion (stream-level) | 0.3408 | 0.3383 | 0.3655 |
+| Linguistic-only (Whisper-tiny + PhoBERT) | 0.2624 | 0.2512 | 0.2708 |
+| Early Fusion (Whisper-tiny) | 0.4044 | 0.3972 | 0.4072 |
+| Early Fusion + 10% synthetic noise | 0.4280 | 0.4216 | 0.4299 |
+| Early Fusion + 20% synthetic noise | 0.4242 | 0.4179 | 0.4280 |
+| Early Fusion + 30% synthetic noise | 0.4165 | 0.4169 | 0.4167 |
 <!-- END_ABLATION_TABLE -->
 
 ## Methods
