@@ -50,8 +50,8 @@ Examples:
 python ECAPA/train_emotion_model.py
 python ECAPA/predict_emotion.py your_audio.wav --model_dir ECAPA/emotion_model
 
-python "DFAT Hybrid Fusion/train_dualstream.py"
-python "DFAT Hybrid Fusion/predict_dualstream.py" your_audio.wav --model_dir "DFAT Hybrid Fusion/dualstream_model"
+python "DFAT_Hybrid_Fusion/train_dualstream.py"
+python "DFAT_Hybrid_Fusion/predict_dualstream.py" your_audio.wav --model_dir "DFAT_Hybrid_Fusion/dualstream_model"
 ```
 
 ## 6) Exit and reuse the same container
