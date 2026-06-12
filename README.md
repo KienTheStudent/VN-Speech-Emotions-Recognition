@@ -1,308 +1,157 @@
 # Vietnamese Speech Emotion Recognition (SER)
 
-A comprehensive implementation of multiple Speech Emotion Recognition models on the ViSEC (Vietnamese Speech Emotion Corpus) dataset, including traditional ML approaches, deep learning models, and state-of-the-art transformer-based architectures.
+**Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese SER on ViSEC**
 
-## 📊 Dataset
+This repository implements and evaluates multiple Speech Emotion Recognition approaches on the ViSEC (Vietnamese Speech Emotion Corpus) dataset under a strict **speaker-independent, leak-free evaluation protocol**.
 
-**ViSEC Dataset** from HuggingFace: `hustep-lab/ViSEC`
-- **Total samples**: ~5,400 utterances
-- **Emotions**: 4 classes (angry, happy, neutral, sad)
+## Research Narrative
+
+> **"Does audio-linguistic fusion outperform classical and strong acoustic baselines for Vietnamese SER under speaker-disjoint evaluation?"**
+
+The thesis follows a three-tier comparison:
+
+1. **Classical Baseline** — MFCC + RandomForest: lightweight, interpretable, no deep learning required.
+2. **Strong Acoustic Baseline** — ECAPA-TDNN: end-to-end deep learning with temporal/spectral modeling.
+3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings (derived via Whisper ASR).
+
+Additional baselines (MFCC+SVM, MFCC+XGBoost, WavLM+LogReg, WavLM+SVM) are included as secondary references in the supplementary benchmark.
+
+## Dataset
+
+**ViSEC** from HuggingFace: `hustep-lab/ViSEC`
+- **Total samples**: 5,280 utterances from 147 speakers
+- **Emotions**: 4 classes — angry, happy, neutral, sad
 - **Language**: Vietnamese
-- **Format**: Audio files with emotion labels
+- **Split**: Speaker-independent — ~80% Train / 10% Val / 10% Test (from `split_manifest.json`)
 
-## 🔧 Common Requirements
+## Evaluation Protocol
 
-Install all required dependencies:
+- **Split**: Greedy speaker-independent allocation; no speaker appears in more than one partition.
+- **Metrics**: Weighted F1 (primary), Macro F1, Accuracy, per-class Precision/Recall/F1.
+- **Repeated runs**: Classical ML classifiers evaluated with 5 random seeds (mean ± std).
+- **Leak-free**: All hyperparameter tuning on Validation set only; Test set evaluated exactly once.
 
-```bash
-# Core libraries (required for all models)
-pip install datasets librosa soundfile transformers torch torchaudio scikit-learn
-pip install matplotlib seaborn pandas numpy tqdm
+## Results
 
-# Vietnamese word segmentation (required for DFAT pipeline)
-pip install underthesea
+### Main Benchmark
 
-# Additional libraries for specific models
-pip install xgboost speechbrain optuna openai-whisper
-```
+<!-- START_BENCHMARK_TABLE -->
+| Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
+|--------|----------|------------------|-----|-----|-------------|
+| MFCC+RandomForest | Secondary | 0.6475 | 0.6463 | 0.6477 | — |
+| MFCC+XGBoost | Secondary | 0.6439 | 0.6425 | 0.6439 | — |
+| MFCC+SVM | Secondary | 0.6366 | 0.6374 | 0.6364 | — |
+| WavLM+SVM | Secondary | 0.6309 | 0.6307 | 0.6307 | — |
+| WavLM+LogReg | Secondary | 0.5713 | 0.5705 | 0.5701 | — |
+<!-- END_BENCHMARK_TABLE -->
 
-Or install from requirements file:
+### DFAT Ablation Study
 
-```bash
-pip install -r requirements.txt
-```
+<!-- START_ABLATION_TABLE -->
 
-## 🤖 Implemented Models
+<!-- END_ABLATION_TABLE -->
 
-### 1. Traditional Machine Learning Models
+## Methods
 
-**Models**: SVM, Random Forest, XGBoost
-- **Features**: MFCC (Mel-Frequency Cepstral Coefficients)
-- **Feature dimension**: 40 MFCC coefficients
-- **Pros**: Fast inference, interpretable
+### 1. MFCC + RandomForest (Classical Baseline)
 
-**Usage**:
-```python
-# Extract MFCC features
-mfcc = librosa.feature.mfcc(y=audio, sr=16000, n_mfcc=40)
-mfcc_mean = np.mean(mfcc, axis=1)
+- **Features**: 40-dimensional MFCC, mean-pooled per utterance
+- **Classifier**: RandomForest with 300 estimators
+- **Rationale**: Demonstrates that handcrafted spectral features remain competitive for Vietnamese SER, establishing a strong cost-effective baseline.
 
-# Train SVM/RF/XGBoost on extracted features
-```
+### 2. ECAPA-TDNN (Strong Acoustic Baseline)
 
----
+- **Input**: 80-channel log-mel spectrogram
+- **Architecture**: ECAPA-TDNN with 256 channels, 192-d embeddings, SE blocks (~1M parameters)
+- **Training**: Up to 100 epochs with Adam (lr=3e-4), ReduceLROnPlateau on validation F1, early stopping (patience=20)
+- **Rationale**: A purpose-built temporal deep learning baseline that learns emotion-discriminative features end-to-end, providing a strong acoustic-only comparison.
 
-### 2. Wav2Vec2 Feature Extractor + SVM
+### 3. DFAT Hybrid Fusion (Proposed Method)
 
-**Architecture**: Wav2Vec2 (facebook/wav2vec2-base-960h) + SVM classifier
-- **Features**: 768-dim embeddings from Wav2Vec2 layer 9
-- **Pre-training**: Trained on English speech, fine-tuned for SER
-- **Pros**: Leverages self-supervised learning
+**ASR-Assisted Audio-Linguistic Fusion**
 
-**Key code**:
-```python
-from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
+- **Stream 1 — SEFE (Acoustic)**: WavLM-base-plus → 768-d acoustic embeddings
+- **Stream 2 — TEFE (Linguistic)**: Whisper-small ASR → Vietnamese text → `underthesea` word segmentation → PhoBERT-base-v2 → 768-d linguistic embeddings
+- **Early Fusion**: Concatenation → 1,536-d features, StandardScaler normalized
+- **Classifiers**: LR, RF, XGBoost (Optuna-tuned on validation, 10 trials)
+- **Late Fusion**: Weighted probability ensemble, weights optimized by Optuna (100 trials) on validation
 
-model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h")
-# Extract layer 9 features for SER
-```
+> **Note**: The linguistic stream is derived from ASR transcription of the *same audio signal*, not from an independent text source. We therefore characterize this as **ASR-assisted audio-linguistic fusion** rather than true multimodal learning.
 
----
-
-### 3. HuBERT (Pre-trained)
-
-**Model**: `superb/hubert-base-superb-er`
-- **Pre-trained**: On emotion recognition task
-- **Features**: Direct emotion predictions
-- **Pros**: Ready-to-use for emotion recognition
-
-**Usage**:
-```python
-from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
-
-model = AutoModelForAudioClassification.from_pretrained("superb/hubert-base-superb-er")
-```
-
----
-
-### 4. WavLM (Microsoft)
-
-**Model**: `microsoft/wavlm-base-plus`
-- **Architecture**: Transformer-based speech model
-- **Training**: Custom classification head on WavLM features
-- **Features**: 768-dim embeddings
-- **Epochs**: 1 (quick training with pre-trained features)
-- **Pros**: State-of-the-art speech understanding
-
-**Training**:
-```python
-from transformers import WavLMForSequenceClassification
-
-model = WavLMForSequenceClassification.from_pretrained(
-    "microsoft/wavlm-base-plus",
-    num_labels=4
-)
-```
-
----
-
-### 5. ECAPA-TDNN
-
-**Architecture**: Emphasized Channel Attention, Propagation and Aggregation in TDNN
-- **Features**: Mel-spectrogram (80-channel)
-- **Components**: 
-  - Time Delay Neural Networks (TDNN)
-  - Squeeze-and-Excitation blocks
-  - Statistics pooling (mean + std)
-- **Training**: From scratch with 100 epochs
-- **Pros**: Specialized for speaker/emotion embeddings
-
-**Key features**:
-```python
-class ECAPA_TDNN(nn.Module):
-    # TDNN layers with SE blocks
-    # Statistics pooling for robust features
-    # Embedding dimension: 192
-```
-
----
-
-### 6. DFAT Hybrid Fusion Pipeline
-
-**Architecture**: Dual-stream Feature Aggregation with Late Fusion
-
-**Feature Extractors**:
-1. **SEFE** (Speech Emotion Feature Extractor): WavLM → 768-dim acoustic embeddings
-2. **TEFE** (Textual Emotion Feature Extractor): Whisper (ASR) → Vietnamese text → word segmentation (underthesea) → PhoBERT → 768-dim linguistic embeddings
-
-**Fusion Strategy**:
-- **Early Fusion**: Concatenate features (1536-dim)
-- **Late Fusion**: Weighted ensemble of 3 classifiers
-  - Logistic Regression
-  - Random Forest
-  - XGBoost (with Optuna optimization)
-  
-**Pros**: True audio-linguistic fusion, robust ensemble
-
-**Pipeline**:
 ```
 Audio → [WavLM] → acoustic embedding (768-d)
 Audio → [Whisper ASR] → text → [word segmentation] → [PhoBERT] → linguistic embedding (768-d)
 → Concat (1536-d) → [LR + RF + XGB] → Weighted Voting
 ```
 
----
+## Repository Structure
 
-### 7. CNN + GRU Hybrid (Improved)
-
-**Architecture**: 
-- **CNN**: 3 convolutional blocks for feature extraction from mel-spectrograms
-- **GRU**: Bidirectional GRU (2 layers) for temporal modeling
-- **Attention**: Attention mechanism for weighted pooling
-- **Features**: 128-channel mel-spectrogram
-
-**Training strategies**:
-- Data augmentation (SpecAugment, pitch shift, time stretch)
-- Class weights for imbalanced data
-- Cosine annealing learning rate
-- Early stopping
-- Gradient clipping
-
-**Pros**: End-to-end learning, handles temporal dynamics
-
-**Key components**:
-```python
-class ImprovedCNNGRU(nn.Module):
-    # CNN: 64 → 128 → 256 channels
-    # BiGRU: 256 hidden units, 2 layers
-    # Attention pooling
-    # FC layers with dropout
+```
+.
+├── benchmark_methods_gpu.py    # Unified benchmark (5-seed repeated eval)
+├── sync_results.py             # Auto-generate tables in README/report/insight
+├── generate_splits.py          # Speaker-independent split generation
+├── split_manifest.json         # Fixed Train/Val/Test manifest
+├── benchmark_results_gpu.json  # Single source of truth for results
+│
+├── ECAPA/
+│   ├── train_emotion_model.py  # ECAPA-TDNN training script
+│   ├── predict_emotion.py      # ECAPA-TDNN inference
+│   └── emotion_model/          # Trained checkpoint + metadata
+│
+├── DFAT_Hybrid_Fusion/
+│   ├── train_dualstream.py     # DFAT training script
+│   ├── predict_dualstream.py   # DFAT inference
+│   ├── ablation_study.py       # DFAT ablation experiments
+│   └── dualstream_model/       # Trained models + metadata
+│
+├── Report_SER.tex              # LaTeX thesis report
+├── insight.md                  # Experimental insight report
+├── SER.ipynb                   # Live inference notebook
+└── requirements.txt            # Python dependencies
 ```
 
----
+## Quick Start
 
-### 8. SpeechFormer++
+### Installation
 
-**Architecture**: Hierarchical Transformer with Multi-Model Feature Fusion
-
-**Feature Extractors**:
-1. **Emotion2Vec+**: `iic/emotion2vec_plus_base` (768-dim)
-2. **Wav2Vec2 Large**: `facebook/wav2vec2-large-960h` (512-dim projected)
-
-**Total features**: 1280-dim concatenated
-
-**Transformer**:
-- **Hierarchical structure**:
-  - Fine-grained layers (detailed emotional nuances)
-  - Coarse-grained layers (high-level patterns)
-- **Fusion**: Concatenate + FC layer
-- **Layers**: 4 transformer blocks (2 fine + 2 coarse)
-- **Heads**: 8 attention heads
-
-**Pros**: State-of-the-art multi-scale emotion modeling
-
-**Training**:
-```python
-model = SpeechFormerPlusPlus(
-    input_dim=1280,
-    num_labels=4,
-    num_layers=4,
-    num_heads=8
-)
+```bash
+pip install -r requirements.txt
 ```
 
----
+### Run Benchmark (5-seed evaluation)
 
-### 9. Multi-Stage Training Framework
-
-**Based on**: "ishowspeech" team's 2nd place solution at VLSP 2025 SER competition
-
-**Key innovations**:
-
-1. **Feature Extraction**: Wav2Vec2 layer 9/12 (768-dim)
-2. **Hybrid Loss**: 
-   - Cross-Entropy + Supervised Contrastive Learning
-   - Formula: `L = (1-α)L_ce + αL_scl` (α=0.5)
-3. **k-NN Interpolation**: 
-   - Build k-NN database from training embeddings
-   - Interpolate predictions: `p(y|x) = β*p_model + (1-β)*p_knn`
-   - β=0.7, k=5
-4. **Data Preprocessing**:
-   - 128-channel filterbank
-   - SpecAugment (F=27, pS=0.05)
-   - 25ms window, 10ms stride
-
-**Training stages**:
-- Stage 1: Train with hybrid loss
-- Stage 2: Build k-NN interpolation database
-- Stage 3: Inference with k-NN refinement
-**Pros**: State-of-the-art Vietnamese SER, competition-proven
-
-
----
-### 1. Training Configuration
-
-Most models can be configured with these parameters:
-
-```python
-# Common parameters
-BATCH_SIZE = 32
-LEARNING_RATE = 0.001
-NUM_EPOCHS = 50-100
-DROPOUT = 0.3
-
-# Model-specific
-# WavLM: 1 epoch (pre-trained)
-# ECAPA-TDNN: 100 epochs (from scratch)
-# CNN+GRU: 50 epochs with early stopping
-# SpeechFormer++: 25 epochs
-# Multi-Stage: 100 epochs
+```bash
+python benchmark_methods_gpu.py
 ```
 
-## 📊 Data Preprocessing
+### Train DFAT
 
-All models use consistent preprocessing:
-
-```python
-# Audio loading
-sample_rate = 16000
-min_duration = 0.5  # seconds
-
-# Feature extraction
-n_mels = 128  # for spectrograms
-n_mfcc = 40   # for MFCC
-window_size = 25  # ms
-hop_length = 10   # ms
-
-# Augmentation (training only)
-spec_augment = True
-freq_mask = 27
-time_mask_ratio = 0.05
+```bash
+python DFAT_Hybrid_Fusion/train_dualstream.py
 ```
 
-## 🎯 Model Selection Guide
+### Run Ablation Study
 
-**Choose based on your needs**:
+```bash
+python DFAT_Hybrid_Fusion/ablation_study.py
+```
 
-1. **Fast inference + Limited resources** → SVM/RF/XGBoost
-2. **Good accuracy + Moderate resources** → Wav2Vec2, WavLM
-3. **Best accuracy + Research purpose** → Multi-Stage + k-NN
-4. **Multi-modal features** → DFAT Fusion
-5. **End-to-end learning** → CNN+GRU
-6. **State-of-the-art** → SpeechFormer++ or Multi-Stage
+### Sync Results to Documentation
 
+```bash
+python sync_results.py
+```
 
-## 📄 License
+## License
 
-MIT License - See LICENSE file for details
+MIT License
 
+## Acknowledgments
 
-## 🙏 Acknowledgments
-
-- ViSEC dataset creators
+- ViSEC dataset creators (HUSTEP Lab)
 - HuggingFace Transformers team
-- VLSP 2025 competition organizers
-- Pre-trained model authors (Wav2Vec2, WavLM, HuBERT, Emotion2Vec, Whisper)
+- Pre-trained model authors (WavLM, Whisper, PhoBERT, ECAPA-TDNN)
 
 ---
 
