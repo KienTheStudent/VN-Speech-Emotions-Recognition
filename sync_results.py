@@ -58,7 +58,12 @@ def generate_md_benchmark(data):
 
     primary = data.get("primary_models", [])
 
-    for r in data["ranked_results"]:
+    sorted_results = sorted(
+        data["ranked_results"],
+        key=lambda x: (0 if x["method"] in primary else 1, -_get_metric(x, "f1_weighted_mean", "f1_weighted"))
+    )
+
+    for r in sorted_results:
         name = r["method"]
         cat = "**Primary**" if name in primary else "Secondary"
         wf1_mean = _get_metric(r, "f1_weighted_mean", "f1_weighted")
@@ -113,10 +118,16 @@ def generate_tex_benchmark(data):
     lines.append(r"\midrule")
 
     primary = data.get("primary_models", [])
+    
+    # Sort results: Primary models first (by F1 score descending), then Secondary models (by F1 score descending)
+    sorted_results = sorted(
+        data["ranked_results"],
+        key=lambda x: (0 if x["method"] in primary else 1, -_get_metric(x, "f1_weighted_mean", "f1_weighted"))
+    )
 
     # Group by category
     current_cat = None
-    for r in data["ranked_results"]:
+    for r in sorted_results:
         name = r["method"]
         is_primary = name in primary
 
