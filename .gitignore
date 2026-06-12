@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 *.pyo
 .ipynb_checkpoints/
+# Large cache files
+*transcript_cache*.json
+# LaTeX auxiliary/output files
+Report_SER.aux
+Report_SER.log
+Report_SER.out
+Report_SER.pdf
