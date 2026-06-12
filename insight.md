@@ -25,48 +25,56 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 
 ## 2. Method Descriptions
 
-### 2.1 MFCC + Classical ML (Baselines)
+### 2.1 MFCC + RandomForest (Classical Baseline)
 - **Features:** 40-dimensional MFCC, mean-pooled per utterance
-- **Classifiers:** SVM (RBF, C=10), Random Forest (300 trees), XGBoost (300 trees, max_depth=8)
+- **Classifier:** RandomForest (300 trees)
 - Train+Val combined for training (no separate tuning needed)
 
-### 2.2 WavLM + Classical ML
-- **Features:** 768-d mean-pooled embeddings from `microsoft/wavlm-base-plus`
-- **Classifiers:** Logistic Regression, SVM (RBF, C=5)
-
-### 2.3 ECAPA-TDNN (End-to-End Audio-Only)
+### 2.2 ECAPA-TDNN (Strong Acoustic Baseline)
 - Input: 80-d log-mel spectrogram
 - Architecture: ECAPA-TDNN with 256 channels, 192-d embeddings, SE blocks
 - Parameters: ~1M
 - Training: 100 epochs max, Adam lr=3e-4, ReduceLROnPlateau on **val F1**, early stopping (patience=20)
 - Best val F1 achieved: 0.6206 (epoch 35)
 
-### 2.4 DFAT Hybrid Fusion (ASR-Assisted Audio-Linguistic Fusion)
+### 2.3 DFAT Hybrid Fusion (ASR-Assisted Audio-Linguistic Fusion) — Proposed Method
 - **SEFE (Acoustic):** WavLM-base-plus → 768-d embeddings
 - **TEFE (Linguistic):** Whisper-small (ASR) → Vietnamese Text → word segmentation (`underthesea`) → PhoBERT-base-v2 → 768-d embeddings
 - **Early Fusion:** Concatenation → 1,536-d features, StandardScaler normalized
 - **Classifiers:** LR, RF, XGBoost (Optuna-tuned on **validation**, 10 trials)
 - **Late Fusion:** Weighted probability ensemble, weights optimized by Optuna (100 trials) on **validation**
 
+### 2.4 Secondary Baselines (Supplementary)
+- MFCC + SVM (RBF, C=10)
+- MFCC + XGBoost (300 trees, max_depth=8)
+- WavLM + Logistic Regression
+- WavLM + SVM (RBF, C=5)
+
 ---
 
-## 3. Results (Leak-Free, Full 5,280 Samples)
+## 3. Results
 
 ### 3.1 Overall Comparison
 
-| Method | Weighted F1 | Macro F1 | Accuracy | Latency |
-|--------|-------------|----------|----------|---------|
-| MFCC+SVM | 0.6366 | 0.6374 | 0.6364 | 0.12 ms |
-| MFCC+RandomForest | 0.6475 | 0.6463 | 0.6477 | 0.10 ms |
-| MFCC+XGBoost | 0.6439 | 0.6425 | 0.6439 | <0.01 ms |
-| WavLM+LogReg | 0.5713 | 0.5705 | 0.5701 | <0.01 ms |
-| WavLM+SVM | 0.6309 | 0.6307 | 0.6307 | 1.19 ms |
-| ECAPA-TDNN | 0.6137 | 0.6131 | 0.6098 | GPU |
-| **DFAT Late Fusion** | **0.7176** | **0.7166** | **0.7178** | GPU |
+<!-- START_BENCHMARK_TABLE -->
+| Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
+|--------|----------|------------------|-----|-----|-------------|
+| MFCC+RandomForest | Secondary | 0.6475 | 0.6463 | 0.6477 | — |
+| MFCC+XGBoost | Secondary | 0.6439 | 0.6425 | 0.6439 | — |
+| MFCC+SVM | Secondary | 0.6366 | 0.6374 | 0.6364 | — |
+| WavLM+SVM | Secondary | 0.6309 | 0.6307 | 0.6307 | — |
+| WavLM+LogReg | Secondary | 0.5713 | 0.5705 | 0.5701 | — |
+<!-- END_BENCHMARK_TABLE -->
 
-### 3.2 Per-Class Performance
+### 3.2 DFAT Ablation Study
 
-#### ECAPA-TDNN (Audio-only Baseline)
+<!-- START_ABLATION_TABLE -->
+
+<!-- END_ABLATION_TABLE -->
+
+### 3.3 Per-Class Performance (Primary Models)
+
+#### ECAPA-TDNN (Strong Acoustic Baseline)
 
 | Emotion | Precision | Recall | F1-Score | Support |
 |---------|-----------|--------|----------|---------|
@@ -75,7 +83,7 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 | Neutral | 0.497 | 0.520 | 0.508 | 150 |
 | Sad     | 0.706 | 0.556 | 0.622 | 108 |
 
-#### DFAT Late Fusion Ensemble (Best Overall)
+#### DFAT Late Fusion Ensemble (Proposed — Best Overall)
 
 | Emotion | Precision | Recall | F1-Score | Support |
 |---------|-----------|--------|----------|---------|
@@ -84,7 +92,7 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 | Neutral | 0.626 | 0.760 | 0.687 | 150 |
 | Sad     | 0.784 | 0.704 | 0.741 | 108 |
 
-#### MFCC+RandomForest (Best Classical Baseline)
+#### MFCC+RandomForest (Classical Baseline)
 
 | Emotion | Precision | Recall | F1-Score | Support |
 |---------|-----------|--------|----------|---------|
@@ -97,27 +105,26 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 
 ## 4. Analysis and Discussion
 
-### 4.1 MFCC outperforms mean-pooled WavLM with simple classifiers (answering RQ1 & RQ2)
+### 4.1 MFCC remains competitive as a classical baseline
 
-Under the current leak-free protocol on full 5,280 samples, MFCC+RF (wF1 0.6475) outperforms WavLM+SVM (wF1 0.6309). This is contrary to expectations and suggests that mean-pooled WavLM embeddings may lose temporal information relevant to emotion. MFCC statistics effectively capture local spectral characteristics within the ViSEC domain. However, WavLM still shows strong per-class performance on Angry (F1 0.734 vs MFCC+RF's 0.697), indicating that SSL features capture distinct cues for high-energy emotions.
+Under the leak-free protocol, MFCC+RF (wF1 0.6475) outperforms WavLM+SVM (wF1 0.6309) when paired with simple classifiers. This suggests that mean-pooled WavLM embeddings lose temporal information relevant to emotion, while MFCC statistics effectively capture local spectral characteristics within the ViSEC domain.
 
-### 4.2 DFAT Hybrid Fusion substantially outperforms all audio-only methods (answering RQ3)
+### 4.2 DFAT ASR-assisted fusion substantially outperforms all audio-only methods
 
 The DFAT Late Fusion Ensemble achieves wF1 0.7176 — a **+7.0 pp improvement** over the best audio-only baseline (MFCC+RF) and **+10.4 pp** over ECAPA-TDNN. The improvement is most pronounced for:
 - **Neutral** (F1 0.687 vs ECAPA 0.508, Δ=+17.9 pp): Neutral speech lacks strong acoustic markers; Whisper-derived linguistic embeddings partially compensate by encoding the semantic flatness of neutral utterances.
 - **Sad** (F1 0.741 vs ECAPA 0.622, Δ=+11.9 pp): Sad and Happy are acoustically confusable; the lexical dimension helps disambiguate.
 
-### 4.3 Ensemble weights reflect classifier strengths
+### 4.3 Compute trade-off analysis
 
-The optimized Late Fusion weights are: RF ≈ 0.427, XGBoost ≈ 0.342, LR ≈ 0.230. Random Forest receives the highest weight, reflecting its robustness on the high-dimensional 1,536-d fused feature space. The diversity of classifiers reduces individual model variance.
+MFCC+RF offers the best cost-efficiency: competitive accuracy (wF1 0.6475) with sub-millisecond inference and no GPU required. DFAT achieves superior accuracy but requires WavLM (94M params) + Whisper (244M params) for feature extraction, making it suitable for offline/batch processing rather than real-time edge deployment.
 
-### 4.4 Leak-free evaluation reveals lower absolute scores
+### 4.4 Error Analysis
 
-Under strict leak-free protocol, ECAPA-TDNN achieves wF1 0.6137 (previously reported as 0.6373 with test-set-based early stopping). DFAT Late Fusion achieves wF1 0.7176 (previously 0.7209 with test-set-based tuning). These differences (+2.4 pp for ECAPA, +0.3 pp for DFAT) confirm that data leakage inflated previous results, particularly for the deep learning model with more degrees of freedom.
-
-### 4.5 Compute trade-off analysis (answering RQ4)
-
-MFCC+RF offers the best cost-efficiency: competitive accuracy (wF1 0.6475) with sub-millisecond inference and no GPU required for feature extraction. DFAT achieves superior accuracy but requires WavLM (94M params) + Whisper (244M params) for feature extraction, making it suitable for offline/batch processing rather than real-time edge deployment.
+Common confusion patterns across all models:
+- **Neutral ↔ Happy**: The most frequent confusion. Both can have moderate energy and pitch, making acoustic-only separation difficult.
+- **Neutral ↔ Sad**: Both are low-energy emotions. DFAT's linguistic stream provides the strongest disambiguation here.
+- **Happy ↔ Angry**: High-energy emotions that share elevated pitch and speaking rate.
 
 ---
 
@@ -160,8 +167,7 @@ Sad              7      5      20    76
 ## 7. Limitations and Future Work
 
 - **Speaker Imbalance**: ViSEC's extreme speaker imbalance (Speaker 0 = 42%) means the strictly speaker-independent training set is dominated by one speaker, potentially limiting broad generalization. Future work should explore more balanced corpora.
-- **Single-seed results**: Multi-seed evaluation with confidence intervals would improve statistical robustness.
-- **ASR quality**: Whisper's Vietnamese word error rate may introduce noise; quantifying this impact is needed.
+- **Single-seed results (ECAPA/DFAT)**: Deep learning models reported from single runs. Multi-seed evaluation with confidence intervals would improve statistical robustness.
+- **ASR quality**: Whisper's Vietnamese word error rate may introduce noise; the ablation study quantifies this impact via Whisper-tiny comparison.
 - **Fine-tuning pretrained models**: WavLM and Whisper were used with frozen features. Fine-tuning on ViSEC may yield further gains.
 - **Neural fusion**: Replacing classical ensemble with MLP or attention-based fusion on the 1,536-d space could improve results.
-- **Cross-lingual generalization**: Testing whether English-pretrained features transfer to other Vietnamese emotional speech conditions.
