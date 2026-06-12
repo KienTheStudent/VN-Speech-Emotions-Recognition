@@ -137,12 +137,16 @@ The comparative results are summarized in Table~\ref{tab:benchmark} and visualiz
 \toprule
 \textbf{Method} & \textbf{wF1} & \textbf{$\sigma$} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
+\multicolumn{5}{l}{\textit{Primary Models}} \\
+\quad \textbf{DFAT Late Fusion} & 0.7176 & 0.0000 & 0.7166 & 0.7178 \\
+\quad \textbf{ECAPA-TDNN} & 0.6137 & 0.0000 & 0.6131 & 0.6098 \\
+\quad \textbf{MFCC+RandomForest} & 0.3651 & 0.0094 & 0.3513 & 0.3939 \\
+\midrule
 \multicolumn{5}{l}{\textit{Secondary Baselines}} \\
-\quad MFCC+RandomForest & 0.6475 & 0.0000 & 0.6463 & 0.6477 \\
-\quad MFCC+XGBoost & 0.6439 & 0.0000 & 0.6425 & 0.6439 \\
-\quad MFCC+SVM & 0.6366 & 0.0000 & 0.6374 & 0.6364 \\
-\quad WavLM+SVM & 0.6309 & 0.0000 & 0.6307 & 0.6307 \\
-\quad WavLM+LogReg & 0.5713 & 0.0000 & 0.5705 & 0.5701 \\
+\quad WavLM+LogReg & 0.4656 & 0.0000 & 0.4574 & 0.4640 \\
+\quad WavLM+SVM & 0.4509 & 0.0000 & 0.4506 & 0.4527 \\
+\quad MFCC+XGBoost & 0.3946 & 0.0103 & 0.3878 & 0.4061 \\
+\quad MFCC+SVM & 0.3662 & 0.0000 & 0.3590 & 0.3674 \\
 \bottomrule
 \end{tabular}
 %% END_BENCHMARK_TABLE
@@ -216,7 +220,21 @@ To understand the contribution of each component, we conduct ablation experiment
 \begin{table}[h]
 \centering
 %% START_ABLATION_TABLE
-% Ablation results not yet available
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuration} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} \\
+\midrule
+Acoustic-only (WavLM) & 0.4329 & 0.4278 & 0.4356 \\
+Linguistic-only (Whisper-small + PhoBERT) & 0.3364 & 0.3349 & 0.3447 \\
+Early Fusion (Concat 1536-d) & 0.3995 & 0.3937 & 0.3996 \\
+Late Fusion (stream-level) & 0.3408 & 0.3383 & 0.3655 \\
+Linguistic-only (Whisper-tiny + PhoBERT) & 0.2624 & 0.2512 & 0.2708 \\
+Early Fusion (Whisper-tiny) & 0.4044 & 0.3972 & 0.4072 \\
+Early Fusion + 10\% synthetic noise & 0.4280 & 0.4216 & 0.4299 \\
+Early Fusion + 20\% synthetic noise & 0.4242 & 0.4179 & 0.4280 \\
+Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
+\bottomrule
+\end{tabular}
 %% END_ABLATION_TABLE
 \caption{DFAT ablation study. All configurations use the same leak-free split. ``Early Fusion'' concatenates acoustic + linguistic features (1,536-d). ``Late Fusion (stream-level)'' combines predictions from separately-trained acoustic-only and linguistic-only classifiers.}
 \label{tab:ablation}
