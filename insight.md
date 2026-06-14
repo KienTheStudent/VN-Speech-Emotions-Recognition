@@ -30,9 +30,9 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 - **Classifier:** RandomForest (300 trees)
 - Train+Val combined for training (no separate tuning needed)
 
-### 2.2 ECAPA-TDNN (Strong Acoustic Baseline)
+### 2.2 ECAPA-TDNN-based Acoustic Baseline
 - Input: 80-d log-mel spectrogram
-- Architecture: ECAPA-TDNN with 256 channels, 192-d embeddings, SE blocks
+- Architecture: ECAPA-TDNN-style with 256 channels, 192-d embeddings, SE blocks
 - Parameters: ~1M
 - Training: 100 epochs max, Adam lr=3e-4, ReduceLROnPlateau on **val F1**, early stopping (patience=20)
 - Best val F1 achieved: 0.6206 (epoch 35)
@@ -86,7 +86,7 @@ Speaker distribution is highly long-tailed: Speaker 0 contributes 2,217 samples 
 
 ### 3.3 Per-Class Performance (Primary Models)
 
-#### ECAPA-TDNN (Strong Acoustic Baseline)
+#### ECAPA-TDNN-based Acoustic Baseline
 
 | Emotion | Precision | Recall | F1-Score | Support |
 |---------|-----------|--------|----------|---------|
@@ -142,7 +142,7 @@ Common confusion patterns across all models:
 
 ## 5. Confusion Matrices
 
-### ECAPA-TDNN
+### ECAPA-TDNN (simplified implementation)
 ```
               Angry  Happy  Neutral  Sad
 Angry          105     17      18     7
