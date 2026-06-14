@@ -257,101 +257,117 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\nDevice: {device}")
 
-    model = EmotionClassifier(num_labels).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0003, weight_decay=0.0001)
-    # ReduceLROnPlateau accepts metric values — val_f1 is correct here
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='max', patience=3, factor=0.5
-    )
-
-    # ------------------------------------------------------------------
-    # 6. Training loop (using VAL for early stopping / scheduler)
-    # ------------------------------------------------------------------
-    print("\nStarting training...")
-    num_epochs = 100
-    best_val_f1 = 0
-    patience = 20
-    patience_counter = 0
-
+    seeds = [42, 123, 456, 789, 2026]
+    runs = []
+    
     output_dir = Path(__file__).parent / "emotion_model"
     output_dir.mkdir(exist_ok=True)
 
-    for epoch in range(num_epochs):
-        train_loss, train_acc = train_epoch(
-            model, train_loader, criterion, optimizer, device, epoch
+    for seed in seeds:
+        print("\n" + "=" * 50)
+        print(f"TRAINING SEED {seed}")
+        print("=" * 50)
+        
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        
+        model = EmotionClassifier(num_labels).to(device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0003, weight_decay=0.0001)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='max', patience=3, factor=0.5
         )
 
-        if np.isnan(train_loss):
-            print(f"NaN loss at epoch {epoch+1}, stopping")
-            break
-
-        # Evaluate on VALIDATION set (never on test)
-        val_preds, val_labels = evaluate(model, val_loader, device)
-        val_acc = accuracy_score(val_labels, val_preds)
-        val_f1 = f1_score(val_labels, val_preds, average='weighted')
-
-        # Scheduler step on val metric
-        if epoch >= 2:
-            scheduler.step(val_f1)
-
-        print(f"Epoch {epoch+1}/{num_epochs}:")
-        print(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
-        print(f"  Val Acc: {val_acc:.4f}, Val F1 (weighted): {val_f1:.4f}")
-
-        # Save best checkpoint based on VALIDATION F1
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            torch.save(model.state_dict(), output_dir / 'best_ecapa_model.pth')
-            print(f"  ✓ New best val F1: {best_val_f1:.4f} — checkpoint saved")
-            patience_counter = 0
-        else:
-            patience_counter += 1
-            if patience_counter >= patience:
-                print(f"Early stopping at epoch {epoch+1}")
+        num_epochs = 100
+        best_val_f1 = 0
+        patience = 20
+        patience_counter = 0
+        warmup_epochs = 2
+        
+        for epoch in range(num_epochs):
+            train_loss, train_acc = train_epoch(
+                model, train_loader, criterion, optimizer, device, epoch, warmup_epochs
+            )
+            
+            if np.isnan(train_loss):
+                print(f"NaN loss at epoch {epoch+1}, stopping")
                 break
 
-    # ------------------------------------------------------------------
-    # 7. Final evaluation on TEST set (exactly once)
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 60)
-    print("FINAL TEST EVALUATION (leak-free)")
-    print("=" * 60)
-    model.load_state_dict(torch.load(output_dir / 'best_ecapa_model.pth', weights_only=True))
-    test_preds, test_labels = evaluate(model, test_loader, device)
+            val_preds, val_labels = evaluate(model, val_loader, device)
+            val_acc = accuracy_score(val_labels, val_preds)
+            val_f1 = f1_score(val_labels, val_preds, average='weighted')
 
-    test_acc = accuracy_score(test_labels, test_preds)
-    test_f1_weighted = f1_score(test_labels, test_preds, average='weighted')
-    test_f1_macro = f1_score(test_labels, test_preds, average='macro')
+            if epoch >= warmup_epochs:
+                scheduler.step(val_f1)
 
-    print(f"\nTest Accuracy:    {test_acc:.4f}")
-    print(f"Test F1 Weighted: {test_f1_weighted:.4f}")
-    print(f"Test F1 Macro:    {test_f1_macro:.4f}")
-    print("\nClassification Report:")
+            print(f"Epoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, Val Acc: {val_acc:.4f}, Val F1: {val_f1:.4f}")
 
-    report_str = classification_report(test_labels, test_preds, target_names=emotion_labels)
-    print(report_str)
+            if val_f1 > best_val_f1:
+                best_val_f1 = val_f1
+                torch.save(model.state_dict(), output_dir / f'best_ecapa_model_seed_{seed}.pth')
+                patience_counter = 0
+            else:
+                if epoch >= warmup_epochs:
+                    patience_counter += 1
+                if patience_counter >= patience:
+                    print(f"Early stopping at epoch {epoch+1}")
+                    break
 
-    report_dict = classification_report(
-        test_labels, test_preds, target_names=emotion_labels, output_dict=True
-    )
-    cm = confusion_matrix(test_labels, test_preds).tolist()
+        # Final evaluation on TEST set for this seed
+        model.load_state_dict(torch.load(output_dir / f'best_ecapa_model_seed_{seed}.pth', weights_only=True))
+        test_preds, test_labels = evaluate(model, test_loader, device)
 
-    print("Confusion Matrix:")
-    print(np.array(cm))
+        test_acc = accuracy_score(test_labels, test_preds)
+        test_f1_weighted = f1_score(test_labels, test_preds, average='weighted')
+        test_f1_macro = f1_score(test_labels, test_preds, average='macro')
+        
+        report_dict = classification_report(test_labels, test_preds, target_names=emotion_labels, output_dict=True)
+        cm = confusion_matrix(test_labels, test_preds).tolist()
+        
+        runs.append({
+            'seed': seed,
+            'f1_weighted': float(test_f1_weighted),
+            'f1_macro': float(test_f1_macro),
+            'accuracy': float(test_acc),
+            'best_val_f1': float(best_val_f1),
+            'classification_report': report_dict,
+            'confusion_matrix': cm
+        })
+        
+        print(f"  -> Seed {seed} Test wF1: {test_f1_weighted:.4f}")
 
-    # Save metadata with full results
+    # Calculate multi-seed stats
+    wf1s = [r['f1_weighted'] for r in runs]
+    mf1s = [r['f1_macro'] for r in runs]
+    accs = [r['accuracy'] for r in runs]
+    
+    median_idx = int(np.argsort(wf1s)[len(wf1s) // 2])
+    representative = runs[median_idx]
+    
+    # Keep only the representative model
+    import shutil
+    shutil.copyfile(output_dir / f'best_ecapa_model_seed_{representative["seed"]}.pth', output_dir / 'best_ecapa_model.pth')
+    
+    # Cleanup seed models
+    for seed in seeds:
+        (output_dir / f'best_ecapa_model_seed_{seed}.pth').unlink(missing_ok=True)
+    
     metadata = {
-        'protocol': 'Leak-free: Val for early stopping/scheduler, Test evaluated once',
+        'protocol': 'Leak-free: Val for early stopping/scheduler, Test evaluated once, 5-seed repeated',
         'split_source': 'split_manifest.json',
         'emotion_labels': emotion_labels,
         'num_classes': num_labels,
-        'best_val_f1': float(best_val_f1),
-        'test_accuracy': float(test_acc),
-        'test_f1_weighted': float(test_f1_weighted),
-        'test_f1_macro': float(test_f1_macro),
-        'classification_report': report_dict,
-        'confusion_matrix': cm,
+        'n_seeds': 5,
+        'seeds': seeds,
+        'test_accuracy_mean': float(np.mean(accs)),
+        'test_accuracy_std': float(np.std(accs)),
+        'test_f1_weighted_mean': float(np.mean(wf1s)),
+        'test_f1_weighted_std': float(np.std(wf1s)),
+        'test_f1_macro_mean': float(np.mean(mf1s)),
+        'test_f1_macro_std': float(np.std(mf1s)),
+        'representative_run': representative,
         'model_config': {
             'input_size': 80,
             'channels': 256,
@@ -362,10 +378,8 @@ def main():
     with open(output_dir / 'metadata.json', 'w', encoding='utf-8') as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✓ Model saved to: {output_dir}/")
-    print(f"✓ Best val F1: {best_val_f1:.4f}")
-    print(f"✓ Final test F1 (weighted): {test_f1_weighted:.4f}")
-
+    print(f"\n✓ Models saved to: {output_dir}/")
+    print(f"✓ Mean test F1 (weighted): {np.mean(wf1s):.4f} ± {np.std(wf1s):.4f}")
 
 if __name__ == "__main__":
     main()
