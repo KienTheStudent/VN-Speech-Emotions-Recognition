@@ -11,7 +11,7 @@ This repository implements and evaluates multiple Speech Emotion Recognition app
 The thesis follows a three-tier comparison:
 
 1. **Classical Baseline** — MFCC + RandomForest: lightweight, interpretable, no deep learning required.
-2. **Strong Acoustic Baseline** — ECAPA-TDNN: end-to-end deep learning with temporal/spectral modeling.
+2. **Strong Acoustic Baseline** — ECAPA-TDNN (simplified implementation): end-to-end deep learning with temporal/spectral modeling.
 3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings (derived via Whisper ASR).
 
 Additional baselines (MFCC+SVM, MFCC+XGBoost, WavLM+LogReg, WavLM+SVM) are included as secondary references in the supplementary benchmark.
@@ -71,10 +71,10 @@ Additional baselines (MFCC+SVM, MFCC+XGBoost, WavLM+LogReg, WavLM+SVM) are inclu
 - **Classifier**: RandomForest with 300 estimators
 - **Rationale**: Demonstrates that handcrafted spectral features remain competitive for Vietnamese SER, establishing a strong cost-effective baseline.
 
-### 2. ECAPA-TDNN (Strong Acoustic Baseline)
+### 2. ECAPA-TDNN-based Acoustic Baseline
 
 - **Input**: 80-channel log-mel spectrogram
-- **Architecture**: ECAPA-TDNN with 256 channels, 192-d embeddings, SE blocks (~1M parameters)
+- **Architecture**: ECAPA-TDNN-style with 256 channels, 192-d embeddings, SE blocks (~1M parameters)
 - **Training**: Up to 100 epochs with Adam (lr=3e-4), ReduceLROnPlateau on validation F1, early stopping (patience=20)
 - **Rationale**: A purpose-built temporal deep learning baseline that learns emotion-discriminative features end-to-end, providing a strong acoustic-only comparison.
 
