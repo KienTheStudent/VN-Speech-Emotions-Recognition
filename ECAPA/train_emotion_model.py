@@ -26,6 +26,10 @@ from sklearn.metrics import (
 )
 from torch.utils.data import Dataset, DataLoader
 
+# Import the validator
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from split_validator import validate_manifest
+
 warnings.filterwarnings('ignore')
 
 # Import model classes from predict_emotion.py
@@ -197,6 +201,7 @@ def main():
     # 1. Load manifest & dataset
     # ------------------------------------------------------------------
     print("\nLoading split manifest...")
+    split_checksum = validate_manifest()
     manifest = load_manifest()
     print(f"  Train: {len(manifest['train_indices'])}")
     print(f"  Val:   {len(manifest['val_indices'])}")
@@ -361,6 +366,7 @@ def main():
     metadata = {
         'protocol': 'Leak-free: Val for early stopping/scheduler, Test evaluated once, 5-seed repeated',
         'split_source': 'split_manifest.json',
+        'split_checksum': split_checksum,
         'emotion_labels': emotion_labels,
         'num_classes': num_labels,
         'n_seeds': 5,

@@ -44,6 +44,10 @@ warnings.filterwarnings("ignore")
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from split_validator import validate_manifest
+
 from underthesea import word_tokenize as vi_word_tokenize
 
 MANIFEST_PATH = Path(__file__).parent.parent / "split_manifest.json"
@@ -206,6 +210,7 @@ def main():
     # 1. Load manifest & dataset
     # ------------------------------------------------------------------
     print("\nLoading split manifest...")
+    split_checksum = validate_manifest()
     manifest = load_manifest()
     print(f"  Train: {len(manifest['train_indices'])}")
     print(f"  Val:   {len(manifest['val_indices'])}")
@@ -452,7 +457,8 @@ def main():
         "protocol": "Leak-free: Val for Optuna tuning & ensemble weights, Test evaluated once, 5-seed repeated",
         "split_source": "split_manifest.json",
         "emotion_labels": emotion_labels,
-        "n_seeds": 5,
+        "split_checksum": split_checksum,
+        "n_seeds": len(seeds),
         "seeds": seeds,
         "test_accuracy_mean": float(np.mean(accs)),
         "test_accuracy_std": float(np.std(accs)),

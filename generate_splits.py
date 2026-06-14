@@ -13,6 +13,7 @@ Output: split_manifest.json in the project root directory.
 """
 
 import json
+import hashlib
 from pathlib import Path
 
 from datasets import load_dataset
@@ -119,7 +120,102 @@ def main():
             for e, c in spk["emotions"].items():
                 test_counts[e] = test_counts.get(e, 0) + c
 
-    print(f"\nSplit sizes:")
+    # ------------------------------------------------------------------
+    # 2b. Local Search Refinement
+    # ------------------------------------------------------------------
+    print("\nApplying local search refinement to improve class balance...")
+    
+    def calculate_kl_divergence(split_counts):
+        total = sum(split_counts.values())
+        if total == 0: return float('inf')
+        kl = 0
+        for e, target_prop in global_dist.items():
+            prop = split_counts.get(e, 0) / total
+            if prop > 0:
+                # We use simple absolute difference here for symmetry and stability
+                kl += abs(prop - target_prop)
+            else:
+                kl += target_prop
+        return kl
+
+    def split_score():
+        return (
+            calculate_kl_divergence(train_counts) +
+            calculate_kl_divergence(val_counts) +
+            calculate_kl_divergence(test_counts)
+        )
+
+    current_score = split_score()
+    improved = True
+    max_iters = 50
+    iters = 0
+    
+    # We map speaker stats for quick lookup
+    spk_map = {spk["speaker_id"]: spk for spk in speaker_stats}
+    
+    # Track which split a speaker belongs to
+    spk_to_split = {}
+    for spk_id in set(df.iloc[train_idx]["speaker_id"]): spk_to_split[spk_id] = "train"
+    for spk_id in set(df.iloc[val_idx]["speaker_id"]): spk_to_split[spk_id] = "val"
+    for spk_id in set(df.iloc[test_idx]["speaker_id"]): spk_to_split[spk_id] = "test"
+    
+    # Only try to swap smaller speakers to avoid blowing up the sizes
+    swap_candidates = [spk for spk in speaker_stats if spk["count"] < 50]
+    
+    while improved and iters < max_iters:
+        improved = False
+        iters += 1
+        for i in range(len(swap_candidates)):
+            for j in range(i + 1, len(swap_candidates)):
+                spk1 = swap_candidates[i]
+                spk2 = swap_candidates[j]
+                split1 = spk_to_split[spk1["speaker_id"]]
+                split2 = spk_to_split[spk2["speaker_id"]]
+                
+                if split1 == split2:
+                    continue
+                    
+                # Try swap
+                # Subtract spk1 from split1, spk2 from split2
+                # Add spk2 to split1, spk1 to split2
+                c1 = train_counts if split1 == "train" else (val_counts if split1 == "val" else test_counts)
+                c2 = train_counts if split2 == "train" else (val_counts if split2 == "val" else test_counts)
+                
+                for e, c in spk1["emotions"].items():
+                    c1[e] -= c
+                    c2[e] += c
+                for e, c in spk2["emotions"].items():
+                    c2[e] -= c
+                    c1[e] += c
+                    
+                new_score = split_score()
+                
+                if new_score < current_score - 0.001:  # Must improve by margin
+                    current_score = new_score
+                    improved = True
+                    spk_to_split[spk1["speaker_id"]] = split2
+                    spk_to_split[spk2["speaker_id"]] = split1
+                else:
+                    # Revert
+                    for e, c in spk1["emotions"].items():
+                        c1[e] += c
+                        c2[e] -= c
+                    for e, c in spk2["emotions"].items():
+                        c2[e] += c
+                        c1[e] -= c
+
+    # Rebuild indices based on optimized spk_to_split
+    train_idx, val_idx, test_idx = [], [], []
+    for spk in speaker_stats:
+        split = spk_to_split[spk["speaker_id"]]
+        if split == "train":
+            train_idx.extend(spk["indices"])
+        elif split == "val":
+            val_idx.extend(spk["indices"])
+        else:
+            test_idx.extend(spk["indices"])
+
+    print(f"\nSplit sizes after refinement ({iters} iterations):")
     print(f"  Train: {len(train_idx)} ({len(train_idx)/len(df)*100:.1f}%)")
     print(f"  Val:   {len(val_idx)} ({len(val_idx)/len(df)*100:.1f}%)")
     print(f"  Test:  {len(test_idx)} ({len(test_idx)/len(df)*100:.1f}%)")
@@ -180,6 +276,10 @@ def main():
         "val_indices": sorted(val_idx),
         "test_indices": sorted(test_idx),
     }
+
+    # Generate checksum
+    manifest_string = json.dumps(manifest, sort_keys=True)
+    manifest["checksum"] = hashlib.sha256(manifest_string.encode('utf-8')).hexdigest()
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)

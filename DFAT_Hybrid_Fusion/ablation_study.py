@@ -103,8 +103,12 @@ def transcribe(audio, whisper_model, whisper_proc, device):
     return text
 
 
-def extract_phobert(text, phobert_model, phobert_tok, device):
-    segmented = vi_word_tokenize(text, format="text") if text.strip() else ""
+def extract_phobert(text, phobert_model, phobert_tok, device, use_segmentation=True):
+    if use_segmentation:
+        segmented = vi_word_tokenize(text, format="text") if text.strip() else ""
+    else:
+        segmented = text.strip()
+        
     if not segmented.strip():
         return np.zeros(768, dtype=np.float32)
     inputs = phobert_tok(segmented, return_tensors="pt", padding=True,
@@ -141,7 +145,7 @@ def extract_all_features(paths, labels, wavlm_model, wavlm_proc,
             text = transcribe(audio, whisper_model, whisper_proc, device)
             cache[key] = text
 
-        lf = extract_phobert(text, phobert_model, phobert_tok, device)
+        lf = extract_phobert(text, phobert_model, phobert_tok, device, use_segmentation=True)
 
         acoustic_list.append(ac)
         linguistic_list.append(lf)
@@ -180,12 +184,15 @@ def perturb_text(text, error_rate, rng):
 # ==================== EVALUATION ====================
 
 def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
-                    label_names, config_name, seed=42):
+                    label_names, config_name, seed=42, use_scaler=True, use_optuna=True):
     """Train LR, RF, XGB on train; tune XGB on val; report on test."""
-    scaler = StandardScaler()
-    x_train_s = scaler.fit_transform(x_train)
-    x_val_s = scaler.transform(x_val)
-    x_test_s = scaler.transform(x_test)
+    if use_scaler:
+        scaler = StandardScaler()
+        x_train_s = scaler.fit_transform(x_train)
+        x_val_s = scaler.transform(x_val)
+        x_test_s = scaler.transform(x_test)
+    else:
+        x_train_s, x_val_s, x_test_s = x_train, x_val, x_test
 
     # LR
     lr = LogisticRegression(max_iter=1000, random_state=seed)
@@ -197,25 +204,29 @@ def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
     rf.fit(x_train_s, y_train)
     rf_f1 = f1_score(y_test, rf.predict(x_test_s), average="weighted")
 
-    # XGBoost with Optuna on val
-    def xgb_obj(trial):
-        params = {
-            "max_depth": trial.suggest_int("max_depth", 3, 10),
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
-            "n_estimators": trial.suggest_int("n_estimators", 50, 300),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
-            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "gamma": trial.suggest_float("gamma", 0, 0.5),
-            "random_state": seed,
-        }
-        m = XGBClassifier(**params, eval_metric="mlogloss")
-        m.fit(x_train_s, y_train)
-        return f1_score(y_val, m.predict(x_val_s), average="weighted")
+    # XGBoost
+    if use_optuna:
+        def xgb_obj(trial):
+            params = {
+                "max_depth": trial.suggest_int("max_depth", 3, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "gamma": trial.suggest_float("gamma", 0, 0.5),
+                "random_state": seed,
+            }
+            m = XGBClassifier(**params, eval_metric="mlogloss")
+            m.fit(x_train_s, y_train)
+            return f1_score(y_val, m.predict(x_val_s), average="weighted")
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(xgb_obj, n_trials=10, show_progress_bar=False)
-    xgb = XGBClassifier(**study.best_params, eval_metric="mlogloss")
+        study = optuna.create_study(direction="maximize")
+        study.optimize(xgb_obj, n_trials=10, show_progress_bar=False)
+        xgb = XGBClassifier(**study.best_params, eval_metric="mlogloss")
+    else:
+        xgb = XGBClassifier(n_estimators=300, max_depth=8, learning_rate=0.08, eval_metric="mlogloss", random_state=seed)
+        
     xgb.fit(x_train_s, y_train)
     xgb_f1 = f1_score(y_test, xgb.predict(x_test_s), average="weighted")
 
@@ -379,6 +390,50 @@ def main():
     ablation_results.append(run_classifiers(
         train_fused, train_y, val_fused, val_y, test_fused, test_y,
         label_names, "Early Fusion (Concat 1536-d)"))
+
+    print("\n" + "=" * 60)
+    print("ABLATION 3b: Early Fusion (No StandardScaler)")
+    print("=" * 60)
+    ablation_results.append(run_classifiers(
+        train_fused, train_y, val_fused, val_y, test_fused, test_y,
+        label_names, "Early Fusion (No StandardScaler)", use_scaler=False))
+
+    print("\n" + "=" * 60)
+    print("ABLATION 3c: Early Fusion (No Optuna tuning)")
+    print("=" * 60)
+    ablation_results.append(run_classifiers(
+        train_fused, train_y, val_fused, val_y, test_fused, test_y,
+        label_names, "Early Fusion (No Optuna tuning)", use_optuna=False))
+
+    print("\n" + "=" * 60)
+    print("ABLATION 3d: Early Fusion (No word segmentation)")
+    print("=" * 60)
+    
+    # Extract PhoBERT without word segmentation
+    print("Re-extracting PhoBERT without word segmentation...")
+    def get_noseg_ling(paths, labels, cache_ref, ac_dict):
+        feat_list, lbl_list, valid_ac_list = [], [], []
+        for p, y in zip(paths, labels):
+            key = str(p)
+            if key not in ac_dict: continue
+            text = cache_ref.get(key, "")
+            feat = extract_phobert(text, phobert_model, phobert_tok, device, use_segmentation=False)
+            feat_list.append(feat)
+            lbl_list.append(y)
+            valid_ac_list.append(ac_dict[key])
+        return np.array(valid_ac_list), np.array(feat_list), np.array(lbl_list)
+
+    train_ac_ns, train_ling_ns, train_y_ns = get_noseg_ling(train_paths, train_labels, cache_small, ac_dict_train)
+    val_ac_ns, val_ling_ns, val_y_ns = get_noseg_ling(val_paths, val_labels, cache_small, ac_dict_val)
+    test_ac_ns, test_ling_ns, test_y_ns = get_noseg_ling(test_paths, test_labels, cache_small, ac_dict_test)
+
+    train_fused_ns = np.concatenate([train_ac_ns, train_ling_ns], axis=1)
+    val_fused_ns = np.concatenate([val_ac_ns, val_ling_ns], axis=1)
+    test_fused_ns = np.concatenate([test_ac_ns, test_ling_ns], axis=1)
+
+    ablation_results.append(run_classifiers(
+        train_fused_ns, train_y_ns, val_fused_ns, val_y_ns, test_fused_ns, test_y_ns,
+        label_names, "Early Fusion (No word segmentation)"))
 
     # ABLATION 4: Late Fusion of acoustic-only + linguistic-only predictions
     print("\n" + "=" * 60)

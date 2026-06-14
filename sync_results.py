@@ -42,6 +42,33 @@ def fmt_pm(mean, std, decimals=4):
         return f"{mean:.{decimals}f} ± {std:.{decimals}f}"
     return f"{mean:.{decimals}f}"
 
+def validate_benchmark_schema(data):
+    """Strictly validate benchmark JSON schema."""
+    if not isinstance(data, dict): raise ValueError("Benchmark JSON must be an object.")
+    
+    required_keys = ["ranked_results", "primary_models", "secondary_models"]
+    for k in required_keys:
+        if k not in data: raise ValueError(f"Benchmark schema missing required key: {k}")
+        
+    for r in data["ranked_results"]:
+        req_res_keys = ["method", "f1_weighted_mean", "f1_weighted_std", "f1_macro_mean", "accuracy_mean"]
+        for k in req_res_keys:
+            if k not in r: raise ValueError(f"Benchmark result missing key: {k} in method {r.get('method')}")
+
+def validate_ablation_schema(data):
+    """Strictly validate ablation JSON schema."""
+    if not isinstance(data, dict): raise ValueError("Ablation JSON must be an object.")
+    
+    if "ablation_results" not in data: raise ValueError("Ablation schema missing required key: ablation_results")
+    
+    for r in data["ablation_results"]:
+        if "config" not in r: raise ValueError("Ablation result missing key: config")
+        if "ensemble" not in r: raise ValueError(f"Ablation result missing key: ensemble for config {r['config']}")
+        ens = r["ensemble"]
+        req_ens_keys = ["f1_weighted", "f1_macro", "accuracy"]
+        for k in req_ens_keys:
+            if k not in ens: raise ValueError(f"Ablation ensemble missing key: {k} for config {r['config']}")
+
 
 # ==================== MARKDOWN GENERATORS ====================
 
@@ -234,6 +261,13 @@ def main():
     if bench_data is None:
         print("Cannot proceed without benchmark_results_gpu.json.")
         return
+
+    # Strict Validation
+    print("Validating JSON schemas...")
+    validate_benchmark_schema(bench_data)
+    if ablation_data:
+        validate_ablation_schema(ablation_data)
+    print("Schema validation passed.")
 
     update_file(ROOT / "README.md", bench_data, ablation_data, is_latex=False)
     update_file(ROOT / "insight.md", bench_data, ablation_data, is_latex=False)
