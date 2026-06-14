@@ -45,11 +45,6 @@ def fmt_pm(mean, std, decimals=4):
 
 # ==================== MARKDOWN GENERATORS ====================
 
-def _get_metric(r, new_key, old_key):
-    """Get a metric from either new-format or old-format results."""
-    return r.get(new_key, r.get(old_key))
-
-
 def generate_md_benchmark(data):
     """Generate a Markdown table for the benchmark."""
     lines = []
@@ -60,17 +55,17 @@ def generate_md_benchmark(data):
 
     sorted_results = sorted(
         data["ranked_results"],
-        key=lambda x: (0 if x["method"] in primary else 1, -_get_metric(x, "f1_weighted_mean", "f1_weighted"))
+        key=lambda x: (0 if x["method"] in primary else 1, -x.get("f1_weighted_mean", 0))
     )
 
     for r in sorted_results:
         name = r["method"]
         cat = "**Primary**" if name in primary else "Secondary"
-        wf1_mean = _get_metric(r, "f1_weighted_mean", "f1_weighted")
+        wf1_mean = r.get("f1_weighted_mean", 0)
         wf1_std = r.get("f1_weighted_std", 0)
         wf1 = fmt_pm(wf1_mean, wf1_std)
-        mf1 = fmt(_get_metric(r, "f1_macro_mean", "f1_macro"))
-        acc = fmt(_get_metric(r, "accuracy_mean", "accuracy"))
+        mf1 = fmt(r.get("f1_macro_mean", 0))
+        acc = fmt(r.get("accuracy_mean", 0))
 
         lat = r.get("latency", {})
         e2e = lat.get("total_e2e_ms_per_sample")
@@ -122,7 +117,7 @@ def generate_tex_benchmark(data):
     # Sort results: Primary models first (by F1 score descending), then Secondary models (by F1 score descending)
     sorted_results = sorted(
         data["ranked_results"],
-        key=lambda x: (0 if x["method"] in primary else 1, -_get_metric(x, "f1_weighted_mean", "f1_weighted"))
+        key=lambda x: (0 if x["method"] in primary else 1, -x.get("f1_weighted_mean", 0))
     )
 
     # Group by category
@@ -140,10 +135,10 @@ def generate_tex_benchmark(data):
             lines.append(r"\multicolumn{5}{l}{\textit{Secondary Baselines}} \\")
             current_cat = "secondary"
 
-        wf1 = fmt(_get_metric(r, "f1_weighted_mean", "f1_weighted"))
+        wf1 = fmt(r.get("f1_weighted_mean", 0))
         std = fmt(r.get("f1_weighted_std", 0))
-        mf1 = fmt(_get_metric(r, "f1_macro_mean", "f1_macro"))
-        acc = fmt(_get_metric(r, "accuracy_mean", "accuracy"))
+        mf1 = fmt(r.get("f1_macro_mean", 0))
+        acc = fmt(r.get("accuracy_mean", 0))
 
         prefix = r"\textbf{" if is_primary else ""
         suffix = "}" if is_primary else ""
