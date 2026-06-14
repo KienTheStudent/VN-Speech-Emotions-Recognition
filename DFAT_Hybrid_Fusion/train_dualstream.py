@@ -185,7 +185,7 @@ def extract_features_for_split(
         textual_list.append(textual)
         label_list.append(label)
 
-    if i % 200 == 0 or len(paths) > 0:
+    if (i + 1) % 200 == 0 or (i + 1) == len(paths):
         save_transcript_cache(cache)
 
     fused = np.concatenate([np.array(acoustic_list), np.array(textual_list)], axis=1)
@@ -325,150 +325,116 @@ def main():
     test_fused = scaler.transform(test_fused)
 
     # ------------------------------------------------------------------
-    # 6. Train base classifiers on TRAIN set only
+    # 6. Train base classifiers on TRAIN set only (5 seeds)
     # ------------------------------------------------------------------
     print("\n" + "=" * 60)
-    print("TRAINING CLASSIFIERS")
+    print("TRAINING CLASSIFIERS (5 Seeds)")
     print("=" * 60)
 
-    print("\n[1/3] Logistic Regression...")
-    lr_model = LogisticRegression(max_iter=1000, random_state=42)
-    lr_model.fit(train_fused, train_labels)
-    lr_val_pred = lr_model.predict(val_fused)
-    lr_val_f1 = f1_score(val_labels, lr_val_pred, average="weighted")
-    print(f"  Val F1 (weighted): {lr_val_f1:.4f}")
+    seeds = [42, 123, 456, 789, 2026]
+    runs = []
 
-    print("\n[2/3] Random Forest...")
-    rf_model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
-    rf_model.fit(train_fused, train_labels)
-    rf_val_pred = rf_model.predict(val_fused)
-    rf_val_f1 = f1_score(val_labels, rf_val_pred, average="weighted")
-    print(f"  Val F1 (weighted): {rf_val_f1:.4f}")
+    for seed in seeds:
+        print(f"\n--- SEED {seed} ---")
+        
+        lr_model = LogisticRegression(max_iter=1000, random_state=seed)
+        lr_model.fit(train_fused, train_labels)
 
-    # ------------------------------------------------------------------
-    # 7. Optuna-tuned XGBoost — evaluated on VAL set (not test!)
-    # ------------------------------------------------------------------
-    print("\n[3/3] XGBoost (Optuna tuning on VAL set)...")
+        rf_model = RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
+        rf_model.fit(train_fused, train_labels)
 
-    def xgb_objective(trial):
-        params = {
-            "max_depth": trial.suggest_int("max_depth", 3, 10),
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
-            "n_estimators": trial.suggest_int("n_estimators", 50, 300),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
-            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "gamma": trial.suggest_float("gamma", 0, 0.5),
-            "random_state": 42,
-        }
-        model = XGBClassifier(**params, eval_metric="mlogloss")
-        model.fit(train_fused, train_labels)
-        pred = model.predict(val_fused)
-        return f1_score(val_labels, pred, average="weighted")
+        def xgb_objective(trial):
+            params = {
+                "max_depth": trial.suggest_int("max_depth", 3, 10),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "gamma": trial.suggest_float("gamma", 0, 0.5),
+                "random_state": seed,
+            }
+            model = XGBClassifier(**params, eval_metric="mlogloss")
+            model.fit(train_fused, train_labels)
+            pred = model.predict(val_fused)
+            return f1_score(val_labels, pred, average="weighted")
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(xgb_objective, n_trials=10, show_progress_bar=True)
+        study = optuna.create_study(direction="maximize")
+        study.optimize(xgb_objective, n_trials=50, show_progress_bar=False)
 
-    print(f"  Best trial val F1: {study.best_value:.4f}")
-    print(f"  Best params: {study.best_params}")
+        xgb_model = XGBClassifier(**study.best_params, eval_metric="mlogloss")
+        xgb_model.fit(train_fused, train_labels)
 
-    xgb_model = XGBClassifier(**study.best_params, eval_metric="mlogloss")
-    xgb_model.fit(train_fused, train_labels)
+        # Ensemble
+        lr_val_proba = lr_model.predict_proba(val_fused)
+        rf_val_proba = rf_model.predict_proba(val_fused)
+        xgb_val_proba = xgb_model.predict_proba(val_fused)
 
-    # ------------------------------------------------------------------
-    # 8. Late Fusion Ensemble — weights optimized on VAL set
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 60)
-    print("OPTIMIZING LATE FUSION WEIGHTS ON VAL SET")
-    print("=" * 60)
+        def ensemble_objective(trial):
+            w1 = trial.suggest_float("w1", 0, 1)
+            w2 = trial.suggest_float("w2", 0, 1)
+            w3 = trial.suggest_float("w3", 0, 1)
+            total = w1 + w2 + w3
+            if total == 0:
+                return 0.0
+            ensemble_proba = (
+                (w1 / total) * xgb_val_proba
+                + (w2 / total) * rf_val_proba
+                + (w3 / total) * lr_val_proba
+            )
+            ensemble_pred = np.argmax(ensemble_proba, axis=1)
+            return f1_score(val_labels, ensemble_pred, average="weighted")
 
-    # Get probability predictions on VAL from all classifiers
-    lr_val_proba = lr_model.predict_proba(val_fused)
-    rf_val_proba = rf_model.predict_proba(val_fused)
-    xgb_val_proba = xgb_model.predict_proba(val_fused)
+        study2 = optuna.create_study(direction="maximize")
+        study2.optimize(ensemble_objective, n_trials=50, show_progress_bar=False)
 
-    def ensemble_objective(trial):
-        w1 = trial.suggest_float("w1", 0, 1)
-        w2 = trial.suggest_float("w2", 0, 1)
-        w3 = trial.suggest_float("w3", 0, 1)
+        w1, w2, w3 = study2.best_params["w1"], study2.best_params["w2"], study2.best_params["w3"]
         total = w1 + w2 + w3
-        if total == 0:
-            return 0.0
-        ensemble_proba = (
-            (w1 / total) * xgb_val_proba
-            + (w2 / total) * rf_val_proba
-            + (w3 / total) * lr_val_proba
-        )
-        ensemble_pred = np.argmax(ensemble_proba, axis=1)
-        return f1_score(val_labels, ensemble_pred, average="weighted")
+        w_xgb, w_rf, w_lr = w1 / total, w2 / total, w3 / total
 
-    study2 = optuna.create_study(direction="maximize")
-    study2.optimize(ensemble_objective, n_trials=100, show_progress_bar=True)
+        # Evaluate on test
+        lr_test_proba = lr_model.predict_proba(test_fused)
+        rf_test_proba = rf_model.predict_proba(test_fused)
+        xgb_test_proba = xgb_model.predict_proba(test_fused)
 
-    w1, w2, w3 = (
-        study2.best_params["w1"],
-        study2.best_params["w2"],
-        study2.best_params["w3"],
-    )
-    total = w1 + w2 + w3
-    w_xgb, w_rf, w_lr = w1 / total, w2 / total, w3 / total
+        ensemble_test_proba = (w_xgb * xgb_test_proba + w_rf * rf_test_proba + w_lr * lr_test_proba)
+        ensemble_test_pred = np.argmax(ensemble_test_proba, axis=1)
 
-    print(f"\nBest ensemble weights:")
-    print(f"  XGBoost: {w_xgb:.4f}")
-    print(f"  Random Forest: {w_rf:.4f}")
-    print(f"  Logistic Regression: {w_lr:.4f}")
-    print(f"  Best val ensemble F1: {study2.best_value:.4f}")
+        test_f1_weighted = f1_score(test_labels, ensemble_test_pred, average="weighted")
+        test_f1_macro = f1_score(test_labels, ensemble_test_pred, average="macro")
+        test_acc = accuracy_score(test_labels, ensemble_test_pred)
 
-    # ------------------------------------------------------------------
-    # 9. FINAL TEST EVALUATION (exactly once)
-    # ------------------------------------------------------------------
-    print("\n" + "=" * 60)
-    print("FINAL TEST EVALUATION (leak-free)")
-    print("=" * 60)
+        report_dict = classification_report(test_labels, ensemble_test_pred, target_names=emotion_labels, output_dict=True)
+        cm = confusion_matrix(test_labels, ensemble_test_pred).tolist()
 
-    # Individual classifier results on test
-    print("\nIndividual classifiers on TEST:")
-    for name, clf in [("LR", lr_model), ("RF", rf_model), ("XGB", xgb_model)]:
-        pred = clf.predict(test_fused)
-        wf1 = f1_score(test_labels, pred, average="weighted")
-        mf1 = f1_score(test_labels, pred, average="macro")
-        acc = accuracy_score(test_labels, pred)
-        print(f"  {name}: wF1={wf1:.4f}  mF1={mf1:.4f}  Acc={acc:.4f}")
+        run_data = {
+            "seed": seed,
+            "f1_weighted": float(test_f1_weighted),
+            "f1_macro": float(test_f1_macro),
+            "accuracy": float(test_acc),
+            "ensemble_weights": {"xgb": float(w_xgb), "rf": float(w_rf), "lr": float(w_lr)},
+            "xgboost_best_params": study.best_params,
+            "classification_report": report_dict,
+            "confusion_matrix": cm,
+            "models": (lr_model, rf_model, xgb_model)
+        }
+        runs.append(run_data)
+        print(f"  -> Seed {seed} Test wF1: {test_f1_weighted:.4f}")
 
-    # Ensemble on test
-    lr_test_proba = lr_model.predict_proba(test_fused)
-    rf_test_proba = rf_model.predict_proba(test_fused)
-    xgb_test_proba = xgb_model.predict_proba(test_fused)
+    # Calculate stats
+    wf1s = [r["f1_weighted"] for r in runs]
+    mf1s = [r["f1_macro"] for r in runs]
+    accs = [r["accuracy"] for r in runs]
 
-    ensemble_test_proba = (
-        w_xgb * xgb_test_proba + w_rf * rf_test_proba + w_lr * lr_test_proba
-    )
-    ensemble_test_pred = np.argmax(ensemble_test_proba, axis=1)
+    median_idx = int(np.argsort(wf1s)[len(wf1s) // 2])
+    representative = runs[median_idx]
+    
+    # Save representative models
+    lr_model, rf_model, xgb_model = representative.pop("models")
+    for r in runs:
+        if "models" in r:
+            del r["models"]
 
-    test_f1_weighted = f1_score(test_labels, ensemble_test_pred, average="weighted")
-    test_f1_macro = f1_score(test_labels, ensemble_test_pred, average="macro")
-    test_acc = accuracy_score(test_labels, ensemble_test_pred)
-
-    print(f"\nLate Fusion Ensemble on TEST:")
-    print(f"  Accuracy:    {test_acc:.4f}")
-    print(f"  F1 Weighted: {test_f1_weighted:.4f}")
-    print(f"  F1 Macro:    {test_f1_macro:.4f}")
-
-    report_str = classification_report(
-        test_labels, ensemble_test_pred, target_names=emotion_labels
-    )
-    print(f"\nClassification Report:\n{report_str}")
-
-    report_dict = classification_report(
-        test_labels, ensemble_test_pred, target_names=emotion_labels, output_dict=True
-    )
-    cm = confusion_matrix(test_labels, ensemble_test_pred).tolist()
-    print("Confusion Matrix:")
-    print(np.array(cm))
-
-    # ------------------------------------------------------------------
-    # 10. Save models and metadata
-    # ------------------------------------------------------------------
     output_dir = Path(__file__).parent / "dualstream_model"
     output_dir.mkdir(exist_ok=True)
 
@@ -482,28 +448,24 @@ def main():
         pickle.dump(scaler, f)
 
     metadata = {
-        "protocol": "Leak-free: Val for Optuna tuning & ensemble weights, Test evaluated once",
+        "protocol": "Leak-free: Val for Optuna tuning & ensemble weights, Test evaluated once, 5-seed repeated",
         "split_source": "split_manifest.json",
         "emotion_labels": emotion_labels,
-        "ensemble_weights": {
-            "xgb": float(w_xgb),
-            "rf": float(w_rf),
-            "lr": float(w_lr),
-        },
-        "xgboost_best_params": study.best_params,
-        "xgboost_best_val_f1": float(study.best_value),
-        "ensemble_best_val_f1": float(study2.best_value),
-        "test_accuracy": float(test_acc),
-        "test_f1_weighted": float(test_f1_weighted),
-        "test_f1_macro": float(test_f1_macro),
-        "classification_report": report_dict,
-        "confusion_matrix": cm,
+        "n_seeds": 5,
+        "seeds": seeds,
+        "test_accuracy_mean": float(np.mean(accs)),
+        "test_accuracy_std": float(np.std(accs)),
+        "test_f1_weighted_mean": float(np.mean(wf1s)),
+        "test_f1_weighted_std": float(np.std(wf1s)),
+        "test_f1_macro_mean": float(np.mean(mf1s)),
+        "test_f1_macro_std": float(np.std(mf1s)),
+        "representative_run": representative
     }
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
     print(f"\n✓ Models saved to: {output_dir}/")
-    print(f"✓ Final test F1 (weighted): {test_f1_weighted:.4f}")
+    print(f"✓ Mean test F1 (weighted): {np.mean(wf1s):.4f} ± {np.std(wf1s):.4f}")
 
 
 if __name__ == "__main__":
