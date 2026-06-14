@@ -41,6 +41,7 @@ from transformers import (
 from xgboost import XGBClassifier
 
 warnings.filterwarnings("ignore")
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 import os
 from underthesea import word_tokenize as vi_word_tokenize

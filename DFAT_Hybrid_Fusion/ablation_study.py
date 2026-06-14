@@ -193,7 +193,7 @@ def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
     lr_f1 = f1_score(y_test, lr.predict(x_test_s), average="weighted")
 
     # RF
-    rf = RandomForestClassifier(n_estimators=100, random_state=seed, n_jobs=-1)
+    rf = RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
     rf.fit(x_train_s, y_train)
     rf_f1 = f1_score(y_test, rf.predict(x_test_s), average="weighted")
 
@@ -394,9 +394,9 @@ def main():
     x_va_lg = scaler_lg.transform(val_ling)
     x_te_lg = scaler_lg.transform(test_ling)
 
-    rf_ac = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+    rf_ac = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
     rf_ac.fit(x_tr_ac, train_y)
-    rf_lg = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+    rf_lg = RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1)
     rf_lg.fit(x_tr_lg, train_y)
 
     # Optimize fusion weight on val

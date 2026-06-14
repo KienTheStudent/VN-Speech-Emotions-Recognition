@@ -234,7 +234,10 @@ else:
     
     # ECAPA Inference
     from predict_emotion import extract_features as ecapa_extract
-    feat = ecapa_extract(demo_audio)
+    from predict_emotion import load_audio
+    
+    audio = load_audio(demo_audio)
+    feat = ecapa_extract(audio)
     feat_tensor = torch.FloatTensor(feat).unsqueeze(0).to(device)
     
     with torch.no_grad():
