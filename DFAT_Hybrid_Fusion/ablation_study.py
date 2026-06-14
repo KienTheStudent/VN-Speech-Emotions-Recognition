@@ -122,7 +122,7 @@ def extract_all_features(paths, labels, wavlm_model, wavlm_proc,
                          phobert_model, phobert_tok,
                          device, split_name, cache):
     """Extract acoustic + linguistic features for a split."""
-    acoustic_list, linguistic_list, label_list = [], [], []
+    acoustic_list, linguistic_list, label_list, valid_paths = [], [], [], []
     for i, (p, y) in enumerate(zip(paths, labels)):
         if i % 200 == 0:
             print(f"  [{split_name}] {i}/{len(paths)}")
@@ -146,9 +146,10 @@ def extract_all_features(paths, labels, wavlm_model, wavlm_proc,
         acoustic_list.append(ac)
         linguistic_list.append(lf)
         label_list.append(y)
+        valid_paths.append(str(p))
 
     print(f"  [{split_name}] {len(label_list)}/{len(paths)} valid")
-    return np.array(acoustic_list), np.array(linguistic_list), np.array(label_list)
+    return np.array(acoustic_list), np.array(linguistic_list), np.array(label_list), valid_paths
 
 
 # ==================== TEXT PERTURBATION ====================
@@ -324,20 +325,26 @@ def main():
     cache_small = load_cache(TRANSCRIPT_CACHE_FILE)
 
     print("\nExtracting features (Whisper-small)...")
-    train_ac, train_ling, train_y = extract_all_features(
+    train_ac, train_ling, train_y, train_vp = extract_all_features(
         train_paths, train_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
         device, "Train", cache_small)
-    val_ac, val_ling, val_y = extract_all_features(
+    val_ac, val_ling, val_y, val_vp = extract_all_features(
         val_paths, val_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
         device, "Val", cache_small)
-    test_ac, test_ling, test_y = extract_all_features(
+    test_ac, test_ling, test_y, test_vp = extract_all_features(
         test_paths, test_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
         device, "Test", cache_small)
 
     save_cache(cache_small, TRANSCRIPT_CACHE_FILE)
+
+    # Build acoustic path dictionaries for exact alignment
+    ac_dict_train = {p: ac for p, ac in zip(train_vp, train_ac)}
+    ac_dict_val = {p: ac for p, ac in zip(val_vp, val_ac)}
+    ac_dict_test = {p: ac for p, ac in zip(test_vp, test_ac)}
+    ac_dicts = {"train": ac_dict_train, "val": ac_dict_val, "test": ac_dict_test}
 
     # Fused features
     train_fused = np.concatenate([train_ac, train_ling], axis=1)
@@ -445,15 +452,15 @@ def main():
     cache_tiny = load_cache(TRANSCRIPT_CACHE_TINY_FILE)
 
     print("Extracting features (Whisper-tiny)...")
-    _, train_ling_tiny, train_y_tiny = extract_all_features(
+    _, train_ling_tiny, train_y_tiny, train_vp_tiny = extract_all_features(
         train_paths, train_labels, wavlm_model, wavlm_proc,
         whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
         device, "Train-tiny", cache_tiny)
-    _, val_ling_tiny, val_y_tiny = extract_all_features(
+    _, val_ling_tiny, val_y_tiny, val_vp_tiny = extract_all_features(
         val_paths, val_labels, wavlm_model, wavlm_proc,
         whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
         device, "Val-tiny", cache_tiny)
-    _, test_ling_tiny, test_y_tiny = extract_all_features(
+    _, test_ling_tiny, test_y_tiny, test_vp_tiny = extract_all_features(
         test_paths, test_labels, wavlm_model, wavlm_proc,
         whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
         device, "Test-tiny", cache_tiny)
@@ -466,10 +473,14 @@ def main():
         test_ling_tiny, test_y_tiny,
         label_names, "Linguistic-only (Whisper-tiny + PhoBERT)"))
 
-    # Early fusion with Whisper-tiny
-    train_fused_tiny = np.concatenate([train_ac[:len(train_ling_tiny)], train_ling_tiny], axis=1)
-    val_fused_tiny = np.concatenate([val_ac[:len(val_ling_tiny)], val_ling_tiny], axis=1)
-    test_fused_tiny = np.concatenate([test_ac[:len(test_ling_tiny)], test_ling_tiny], axis=1)
+    # Early fusion with Whisper-tiny using explicit path alignment
+    train_ac_tiny = np.array([ac_dict_train[p] for p in train_vp_tiny])
+    val_ac_tiny = np.array([ac_dict_val[p] for p in val_vp_tiny])
+    test_ac_tiny = np.array([ac_dict_test[p] for p in test_vp_tiny])
+
+    train_fused_tiny = np.concatenate([train_ac_tiny, train_ling_tiny], axis=1)
+    val_fused_tiny = np.concatenate([val_ac_tiny, val_ling_tiny], axis=1)
+    test_fused_tiny = np.concatenate([test_ac_tiny, test_ling_tiny], axis=1)
 
     ablation_results.append(run_classifiers(
         train_fused_tiny, train_y_tiny, val_fused_tiny, val_y_tiny,
@@ -492,33 +503,33 @@ def main():
 
         # Re-extract PhoBERT features with perturbed text
         perturbed_sets = {}
-        for name, paths, labels, cache_ref in [
-            ("train", train_paths, train_labels, cache_small),
-            ("val", val_paths, val_labels, cache_small),
-            ("test", test_paths, test_labels, cache_small),
+        for name, paths, labels, cache_ref, ac_dict in [
+            ("train", train_paths, train_labels, cache_small, ac_dict_train),
+            ("val", val_paths, val_labels, cache_small, ac_dict_val),
+            ("test", test_paths, test_labels, cache_small, ac_dict_test),
         ]:
-            feat_list, lbl_list = [], []
+            feat_list, lbl_list, valid_ac_list = [], [], []
             for p, y in zip(paths, labels):
                 key = str(p)
+                if key not in ac_dict:
+                    continue  # Ensure we only keep samples that loaded correctly in acoustics
                 text = cache_ref.get(key, "")
                 perturbed = perturb_text(text, error_rate, rng)
                 feat = extract_phobert(perturbed, phobert_model, phobert_tok, device)
                 feat_list.append(feat)
                 lbl_list.append(y)
-            perturbed_sets[name] = (np.array(feat_list), np.array(lbl_list))
+                valid_ac_list.append(ac_dict[key])
+            perturbed_sets[name] = (np.array(valid_ac_list), np.array(feat_list), np.array(lbl_list))
 
         # Early fusion with perturbed linguistic
-        p_train_fused = np.concatenate([train_ac[:len(perturbed_sets["train"][1])],
-                                        perturbed_sets["train"][0]], axis=1)
-        p_val_fused = np.concatenate([val_ac[:len(perturbed_sets["val"][1])],
-                                      perturbed_sets["val"][0]], axis=1)
-        p_test_fused = np.concatenate([test_ac[:len(perturbed_sets["test"][1])],
-                                       perturbed_sets["test"][0]], axis=1)
+        p_train_fused = np.concatenate([perturbed_sets["train"][0], perturbed_sets["train"][1]], axis=1)
+        p_val_fused = np.concatenate([perturbed_sets["val"][0], perturbed_sets["val"][1]], axis=1)
+        p_test_fused = np.concatenate([perturbed_sets["test"][0], perturbed_sets["test"][1]], axis=1)
 
         ablation_results.append(run_classifiers(
-            p_train_fused, perturbed_sets["train"][1],
-            p_val_fused, perturbed_sets["val"][1],
-            p_test_fused, perturbed_sets["test"][1],
+            p_train_fused, perturbed_sets["train"][2],
+            p_val_fused, perturbed_sets["val"][2],
+            p_test_fused, perturbed_sets["test"][2],
             label_names,
             f"Early Fusion + {error_rate*100:.0f}% synthetic noise"))
 

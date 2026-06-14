@@ -162,6 +162,119 @@ else:
     plt.show()
 """
 
+cell_barchart = """# ==================== 4. MODEL COMPARISON CHART ====================
+import json
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+
+benchmark_path = Path("benchmark_results_gpu.json")
+if benchmark_path.exists():
+    with open(benchmark_path, 'r') as f:
+        data = json.load(f)
+    
+    primary = ["MFCC+RandomForest", "ECAPA-TDNN", "DFAT Late Fusion"]
+    methods = []
+    wf1s = []
+    colors = []
+    
+    for r in data.get("ranked_results", []):
+        methods.append(r["method"])
+        wf1s.append(r.get("f1_weighted_mean", 0))
+        colors.append("#1f77b4" if r["method"] in primary else "#b0c4de")
+        
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=wf1s, y=methods, palette=colors)
+    plt.title("Model Comparison - Weighted F1 Score", pad=20)
+    plt.xlabel("Weighted F1 Score")
+    plt.xlim(0, 1.0)
+    plt.axvline(x=0.7176, color='red', linestyle='--', alpha=0.5, label='DFAT Best')
+    plt.legend()
+    plt.tight_layout()
+    
+    # Save to report_images
+    Path("report_images").mkdir(exist_ok=True)
+    plt.savefig("report_images/model_comparison.png", dpi=300, bbox_inches='tight')
+    plt.show()
+else:
+    print("benchmark_results_gpu.json not found. Run benchmark_methods_gpu.py first.")
+"""
+
+cell_ablation = """# ==================== 5. ABLATION STUDY RESULTS ====================
+import pandas as pd
+
+ablation_path = Path("DFAT_Hybrid_Fusion/ablation_results.json")
+if ablation_path.exists():
+    with open(ablation_path, 'r') as f:
+        data = json.load(f)
+        
+    records = []
+    for r in data.get("ablation_results", []):
+        ens = r.get("ensemble", {})
+        records.append({
+            "Configuration": r["config"],
+            "Weighted F1": ens.get("f1_weighted", 0),
+            "Macro F1": ens.get("f1_macro", 0),
+            "Accuracy": ens.get("accuracy", 0)
+        })
+        
+    df_ablation = pd.DataFrame(records)
+    display(df_ablation.style.background_gradient(cmap='Blues', subset=['Weighted F1']))
+else:
+    print("Ablation results not found. Run ablation_study.py first.")
+"""
+
+cell_demo = """# ==================== 6. LIVE INFERENCE DEMO ====================
+demo_audio = "sample_visec.wav"
+
+if not Path(demo_audio).exists():
+    print(f"Demo file {demo_audio} not found. Please provide an audio file.")
+else:
+    print(f"Running Inference on {demo_audio}\\n")
+    
+    # ECAPA Inference
+    from predict_emotion import extract_features as ecapa_extract
+    feat = ecapa_extract(demo_audio)
+    feat_tensor = torch.FloatTensor(feat).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        ecapa_out = ecapa_model(feat_tensor)
+        ecapa_probs = torch.softmax(ecapa_out, dim=1).squeeze().cpu().numpy()
+        
+    # DFAT Inference
+    ac_feat = wavlm_model(**{k: v.to(device) for k, v in wavlm_processor(
+        load_audio(demo_audio), sampling_rate=16000, return_tensors="pt", padding=True).items()
+    }).last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
+    
+    inputs = whisper_processor(load_audio(demo_audio), sampling_rate=16000, return_tensors="pt").input_features.to(device)
+    with torch.no_grad():
+        ids = whisper_model.generate(inputs, max_new_tokens=100)
+        text = whisper_processor.batch_decode(ids, skip_special_tokens=True)[0]
+    
+    from underthesea import word_tokenize
+    seg_text = word_tokenize(text, format="text")
+    inputs = phobert_tokenizer(seg_text, return_tensors="pt", padding=True, truncation=True, max_length=256).to(device)
+    with torch.no_grad():
+        lg_feat = phobert_model(**inputs).pooler_output.squeeze().cpu().numpy()
+        
+    fused = np.concatenate([[ac_feat], [lg_feat]], axis=1)
+    fused_scaled = scaler.transform(fused)
+    
+    dfat_proba = (w_xgb * xgb_model.predict_proba(fused_scaled) + 
+                  w_rf * rf_model.predict_proba(fused_scaled) + 
+                  w_lr * lr_model.predict_proba(fused_scaled))[0]
+                  
+    # Print Side-by-Side
+    print(f"{'Emotion':<10} | {'ECAPA Prob':<15} | {'DFAT Prob':<15}")
+    print("-" * 45)
+    for i, label in enumerate(emotion_labels):
+        print(f"{label:<10} | {ecapa_probs[i]:<15.4f} | {dfat_proba[i]:<15.4f}")
+    
+    print(f"\\nTranscribed Text: {text}")
+    print(f"ECAPA Prediction: {emotion_labels[np.argmax(ecapa_probs)]}")
+    print(f"DFAT Prediction:  {emotion_labels[np.argmax(dfat_proba)]}")
+"""
+
 
 def split_lines(text):
     return [line + "\n" for line in text.split("\n")]
@@ -184,12 +297,34 @@ cells = [
         "outputs": [],
         "source": split_lines(cell_ecapa)[:-1],
     },
+    {"cell_type": "markdown", "metadata": {}, "source": split_lines("## Results Summary\n\nBelow are the final evaluation outputs for our baseline and proposed models.")[:-1]},
     {
         "cell_type": "code",
         "execution_count": None,
         "metadata": {},
         "outputs": [],
         "source": split_lines(cell_dfat)[:-1],
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": split_lines(cell_barchart)[:-1],
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": split_lines(cell_ablation)[:-1],
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": split_lines(cell_demo)[:-1],
     },
 ]
 

@@ -274,7 +274,11 @@ def main():
             torch.cuda.manual_seed_all(seed)
         
         model = EmotionClassifier(num_labels).to(device)
-        criterion = nn.CrossEntropyLoss()
+        class_counts = np.bincount(y_train_clean)
+        class_weights = 1.0 / class_counts
+        class_weights = class_weights / class_weights.sum() * len(class_weights)
+        class_weights_tensor = torch.FloatTensor(class_weights).to(device)
+        criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0003, weight_decay=0.0001)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode='max', patience=3, factor=0.5
