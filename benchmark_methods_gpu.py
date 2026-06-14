@@ -401,33 +401,33 @@ def main():
         with open(ecapa_meta_path, "r") as f:
             ecapa_meta = json.load(f)
         ecapa_entry = {
-            "method": "ECAPA-TDNN",
-            "n_seeds": 1,
-            "seeds": [42],
-            "f1_weighted_mean": ecapa_meta["test_f1_weighted"],
-            "f1_weighted_std": 0.0,
-            "f1_macro_mean": ecapa_meta["test_f1_macro"],
-            "f1_macro_std": 0.0,
-            "accuracy_mean": ecapa_meta["test_accuracy"],
-            "accuracy_std": 0.0,
+            "method": "ECAPA-TDNN (simplified implementation)",
+            "n_seeds": ecapa_meta.get("n_seeds", 1),
+            "seeds": ecapa_meta.get("seeds", [42]),
+            "f1_weighted_mean": ecapa_meta.get("test_f1_weighted_mean", ecapa_meta.get("test_f1_weighted")),
+            "f1_weighted_std": ecapa_meta.get("test_f1_weighted_std", 0.0),
+            "f1_macro_mean": ecapa_meta.get("test_f1_macro_mean", ecapa_meta.get("test_f1_macro")),
+            "f1_macro_std": ecapa_meta.get("test_f1_macro_std", 0.0),
+            "accuracy_mean": ecapa_meta.get("test_accuracy_mean", ecapa_meta.get("test_accuracy")),
+            "accuracy_std": ecapa_meta.get("test_accuracy_std", 0.0),
             "latency": {
                 "feature_extraction_ms_per_sample": None,
                 "classifier_ms_per_sample": None,
                 "total_e2e_ms_per_sample": None,
                 "note": "GPU-bound; requires mel-spectrogram extraction + neural forward pass",
             },
-            "representative_run": {
+            "representative_run": ecapa_meta.get("representative_run", {
                 "seed": 42,
-                "f1_weighted": ecapa_meta["test_f1_weighted"],
-                "f1_macro": ecapa_meta["test_f1_macro"],
-                "accuracy": ecapa_meta["test_accuracy"],
-                "classification_report": ecapa_meta["classification_report"],
-                "confusion_matrix": ecapa_meta["confusion_matrix"],
-            },
-            "note": "Single-run result from ECAPA/emotion_model/metadata.json",
+                "f1_weighted": ecapa_meta.get("test_f1_weighted"),
+                "f1_macro": ecapa_meta.get("test_f1_macro"),
+                "accuracy": ecapa_meta.get("test_accuracy"),
+                "classification_report": ecapa_meta.get("classification_report"),
+                "confusion_matrix": ecapa_meta.get("confusion_matrix"),
+            }),
+            "note": "Results from ECAPA/emotion_model/metadata.json",
         }
         results.append(ecapa_entry)
-        print(f"\n  ECAPA-TDNN (from metadata): wF1={ecapa_meta['test_f1_weighted']:.4f}")
+        print(f"\n  ECAPA-TDNN (from metadata): wF1={ecapa_entry['f1_weighted_mean']:.4f} ± {ecapa_entry['f1_weighted_std']:.4f}")
     else:
         print("\n  ⚠ ECAPA metadata not found — skipping")
 
@@ -436,32 +436,32 @@ def main():
             dfat_meta = json.load(f)
         dfat_entry = {
             "method": "DFAT Late Fusion",
-            "n_seeds": 1,
-            "seeds": [42],
-            "f1_weighted_mean": dfat_meta["test_f1_weighted"],
-            "f1_weighted_std": 0.0,
-            "f1_macro_mean": dfat_meta["test_f1_macro"],
-            "f1_macro_std": 0.0,
-            "accuracy_mean": dfat_meta["test_accuracy"],
-            "accuracy_std": 0.0,
+            "n_seeds": dfat_meta.get("n_seeds", 1),
+            "seeds": dfat_meta.get("seeds", [42]),
+            "f1_weighted_mean": dfat_meta.get("test_f1_weighted_mean", dfat_meta.get("test_f1_weighted")),
+            "f1_weighted_std": dfat_meta.get("test_f1_weighted_std", 0.0),
+            "f1_macro_mean": dfat_meta.get("test_f1_macro_mean", dfat_meta.get("test_f1_macro")),
+            "f1_macro_std": dfat_meta.get("test_f1_macro_std", 0.0),
+            "accuracy_mean": dfat_meta.get("test_accuracy_mean", dfat_meta.get("test_accuracy")),
+            "accuracy_std": dfat_meta.get("test_accuracy_std", 0.0),
             "latency": {
                 "feature_extraction_ms_per_sample": None,
                 "classifier_ms_per_sample": None,
                 "total_e2e_ms_per_sample": None,
                 "note": "GPU-bound; requires WavLM + Whisper ASR + PhoBERT extraction",
             },
-            "representative_run": {
+            "representative_run": dfat_meta.get("representative_run", {
                 "seed": 42,
-                "f1_weighted": dfat_meta["test_f1_weighted"],
-                "f1_macro": dfat_meta["test_f1_macro"],
-                "accuracy": dfat_meta["test_accuracy"],
-                "classification_report": dfat_meta["classification_report"],
-                "confusion_matrix": dfat_meta["confusion_matrix"],
-            },
-            "note": "Single-run result from DFAT_Hybrid_Fusion/dualstream_model/metadata.json",
+                "f1_weighted": dfat_meta.get("test_f1_weighted"),
+                "f1_macro": dfat_meta.get("test_f1_macro"),
+                "accuracy": dfat_meta.get("test_accuracy"),
+                "classification_report": dfat_meta.get("classification_report"),
+                "confusion_matrix": dfat_meta.get("confusion_matrix"),
+            }),
+            "note": "Results from DFAT_Hybrid_Fusion/dualstream_model/metadata.json",
         }
         results.append(dfat_entry)
-        print(f"  DFAT Late Fusion (from metadata): wF1={dfat_meta['test_f1_weighted']:.4f}")
+        print(f"  DFAT Late Fusion (from metadata): wF1={dfat_entry['f1_weighted_mean']:.4f} ± {dfat_entry['f1_weighted_std']:.4f}")
     else:
         print("  ⚠ DFAT metadata not found — skipping")
 
@@ -469,6 +469,13 @@ def main():
     # 6. Rank and save
     # ------------------------------------------------------------------
     ranked = sorted(results, key=lambda x: x["f1_weighted_mean"], reverse=True)
+
+    primary_models_list = ["MFCC+RandomForest", "ECAPA-TDNN (simplified implementation)", "DFAT Late Fusion"]
+    secondary_models_list = ["MFCC+SVM", "MFCC+XGBoost", "WavLM+LogReg", "WavLM+SVM"]
+
+    global_best = ranked[0]["method"] if ranked else None
+    primary_ranked = [r for r in ranked if r["method"] in primary_models_list]
+    primary_best = primary_ranked[0]["method"] if primary_ranked else None
 
     summary = {
         "protocol": "Leak-free benchmark on full ViSEC, 5-seed repeated evaluation",
@@ -479,10 +486,11 @@ def main():
         "seeds": SEEDS,
         "device": str(device),
         "emotion_labels": label_names,
-        "primary_models": ["MFCC+RandomForest", "ECAPA-TDNN", "DFAT Late Fusion"],
-        "secondary_models": ["MFCC+SVM", "MFCC+XGBoost", "WavLM+LogReg", "WavLM+SVM"],
+        "primary_models": primary_models_list,
+        "secondary_models": secondary_models_list,
         "ranked_results": ranked,
-        "best_method": ranked[0]["method"],
+        "global_best_method": global_best,
+        "primary_best_method": primary_best,
     }
 
     output_path = Path(__file__).parent / "benchmark_results_gpu.json"
