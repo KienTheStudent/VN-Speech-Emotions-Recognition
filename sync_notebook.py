@@ -188,7 +188,9 @@ if benchmark_path.exists():
     plt.title("Model Comparison - Weighted F1 Score", pad=20)
     plt.xlabel("Weighted F1 Score")
     plt.xlim(0, 1.0)
-    plt.axvline(x=0.7176, color='red', linestyle='--', alpha=0.5, label='DFAT Best')
+    
+    best_wf1 = max(wf1s) if wf1s else 0
+    plt.axvline(x=best_wf1, color='red', linestyle='--', alpha=0.5, label='DFAT Best')
     plt.legend()
     plt.tight_layout()
     

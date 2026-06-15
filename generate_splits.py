@@ -125,24 +125,24 @@ def main():
     # ------------------------------------------------------------------
     print("\nApplying local search refinement to improve class balance...")
     
-    def calculate_kl_divergence(split_counts):
+    def calculate_absolute_difference(split_counts):
         total = sum(split_counts.values())
         if total == 0: return float('inf')
-        kl = 0
+        diff = 0
         for e, target_prop in global_dist.items():
             prop = split_counts.get(e, 0) / total
             if prop > 0:
                 # We use simple absolute difference here for symmetry and stability
-                kl += abs(prop - target_prop)
+                diff += abs(prop - target_prop)
             else:
-                kl += target_prop
-        return kl
+                diff += target_prop
+        return diff
 
     def split_score():
         return (
-            calculate_kl_divergence(train_counts) +
-            calculate_kl_divergence(val_counts) +
-            calculate_kl_divergence(test_counts)
+            calculate_absolute_difference(train_counts) +
+            calculate_absolute_difference(val_counts) +
+            calculate_absolute_difference(test_counts)
         )
 
     current_score = split_score()

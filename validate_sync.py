@@ -69,6 +69,25 @@ def main():
     all_good &= check_file(ROOT / "insight.md", bench_data, ablation_data, is_latex=False)
     all_good &= check_file(ROOT / "Report_SER.tex", bench_data, ablation_data, is_latex=True)
 
+    # Validate SER.ipynb
+    nb_path = ROOT / "SER.ipynb"
+    nb_content_before = nb_path.read_text(encoding="utf-8") if nb_path.exists() else ""
+    import subprocess
+    try:
+        subprocess.run(["python", str(ROOT / "sync_notebook.py")], check=True, capture_output=True)
+        nb_content_after = nb_path.read_text(encoding="utf-8") if nb_path.exists() else ""
+        if nb_content_before != nb_content_after:
+            print(f"❌ MISMATCH FOUND IN SER.ipynb!")
+            print("The notebook is out of sync. Please run `python sync_results.py` to fix this.")
+            if nb_path.exists() and nb_content_before:
+                nb_path.write_text(nb_content_before, encoding="utf-8")
+            all_good = False
+        else:
+            print(f"✓ SER.ipynb is in sync.")
+    except Exception as e:
+        print(f"❌ Failed to validate notebook: {e}")
+        all_good = False
+
     if not all_good:
         sys.exit(1)
         
