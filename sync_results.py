@@ -273,6 +273,13 @@ def main():
     update_file(ROOT / "insight.md", bench_data, ablation_data, is_latex=False)
     update_file(ROOT / "Report_SER.tex", bench_data, ablation_data, is_latex=True)
 
+    print("\nSynchronizing SER.ipynb...")
+    import subprocess
+    try:
+        subprocess.run(["python", str(ROOT / "sync_notebook.py")], check=True)
+    except Exception as e:
+        print(f"  ⚠ Failed to sync notebook: {e}")
+
     print("\n✓ All files synchronized from benchmark_results_gpu.json")
 
 

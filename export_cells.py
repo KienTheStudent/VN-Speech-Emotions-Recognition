@@ -1,8 +1,8 @@
 import json
 import os
 
-notebook_path = "/mnt/12bc61a2-ddc5-4be8-b8be-bbd99dc6d141/AI engineer/Study/Speech-Emotions-Recognition/SER.ipynb"
-out_dir = "/mnt/12bc61a2-ddc5-4be8-b8be-bbd99dc6d141/AI engineer/Study/Speech-Emotions-Recognition/exported_cells"
+notebook_path = "SER.ipynb"
+out_dir = "exported_cells"
 os.makedirs(out_dir, exist_ok=True)
 
 with open(notebook_path, 'r', encoding='utf-8') as f:
