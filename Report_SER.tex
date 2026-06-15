@@ -15,8 +15,8 @@
 
 \title{Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese Speech Emotion Recognition on ViSEC}
 \author{
-    Ngo Xuan Kien \\
-    Student ID: 23BI14230 \\ 
+    Ngô Xuân Kiên \\
+    Student ID: 23BI14239 \\ 
     B3 Data Science
 }
 \date{May 2026}
@@ -248,24 +248,32 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 
 \chapter{Discussion}
 
-\section{RQ1: Classical vs. Deep Audio Baselines}
-The ECAPA-TDNN baseline significantly outperforms the MFCC+RF pipeline under the strict speaker-independent protocol. Previous benchmarks utilized random stratified sampling, which allowed speaker identity leakage between train and test sets, artificially inflating classical ML performance. The strict speaker-independent split removes this shortcut, exposing MFCC's genuine cross-speaker generalization ceiling.
+\section{RQ1: Classical Baselines and the Impact of Speaker-Independent Splits}
+Under our strict speaker-independent protocol, the classical MFCC+RF pipeline achieves substantially lower performance compared to historical benchmarks on ViSEC. Previous benchmarks often utilized random stratified sampling, which inherently allows speaker identity leakage between the train and test sets. In such scenarios, classical ML models inadvertently memorize speaker-specific acoustic features rather than generalized emotion patterns. By enforcing a strict cryptographic split where test speakers are completely unseen during training, we expose the genuine generalization ceiling of handcrafted MFCC features. The deep learning ECAPA-TDNN baseline, designed explicitly for generalized representation learning, experiences a far smaller drop and significantly outperforms the classical pipeline, proving its robustness across diverse vocal tracts.
 
-\section{RQ2: ASR-Assisted Fusion}
-DFAT Late Fusion Ensemble achieves a substantial improvement over audio-only baselines. The improvement is most pronounced for Neutral, which is acoustically ambiguous and benefits most from ASR-derived linguistic embeddings. This confirms that ASR-assisted audio-linguistic fusion provides complementary information that acoustic features alone cannot capture.
+\section{RQ2: ASR-Assisted Fusion -- Where DFAT Wins and Loses}
+DFAT Late Fusion Ensemble demonstrates substantial improvements over audio-only baselines, but the gains are not uniform across all emotion classes. 
+\textbf{Where DFAT Wins:} The improvement is most pronounced for the \textit{Neutral} class, which is acoustically ambiguous. Neutral speech often lacks distinct prosodic markers, causing audio-only models like ECAPA-TDNN to struggle. By incorporating ASR-derived linguistic embeddings (PhoBERT), DFAT leverages lexical cues to disambiguate Neutral utterances successfully, lifting its F1-score significantly.
+\textbf{Where DFAT Loses:} DFAT struggles when transcription noise overwhelms the linguistic stream. Rapid, highly emotional outbursts (especially \textit{Happy} or \textit{Angry}) often cause Whisper to drop or misinterpret words. In these instances, the corrupted text forces the PhoBERT embedding into out-of-distribution spaces, causing the fusion system to misclassify the utterance.
 
-\section{RQ3: Component Contributions}
-The acoustic stream dominates discriminative power. However, Whisper-small transcription noise degrades the combined features, making Early Fusion less optimal than Late Fusion. Substituting Whisper-small with Whisper-tiny causes performance to drop significantly, confirming the pipeline's high sensitivity to ASR quality.
+\section{RQ3: Component Contributions via Ablation}
+The ablation study confirms that both streams provide complementary signals. While the WavLM acoustic stream provides the primary discriminative power, the linguistic stream acts as a critical regularizer for acoustically overlapping classes. Furthermore, substituting Whisper-small with Whisper-tiny causes performance to drop precipitously, confirming the entire pipeline's high sensitivity to the underlying ASR quality. Early fusion (concatenation) underperforms compared to Late Fusion because it forces the classifier to directly model the noise in the Whisper transcripts, whereas Late Fusion allows the ensemble to intelligently weight the stream probabilities to marginalize transcription errors.
 
-\section{RQ4: Performance vs. Compute Trade-Off}
-MFCC+RF offers the best cost-efficiency ratio: competitive accuracy with sub-millisecond end-to-end inference and no GPU requirement. DFAT achieves superior accuracy but requires three large pretrained models (WavLM 94M + Whisper 244M + PhoBERT 135M parameters) for feature extraction.
+\section{RQ4: Compute Trade-Off (Feature Extraction vs. Classifier Latency)}
+When evaluating cost-efficiency, we must decompose latency into two axes: feature extraction and classifier execution.
+\begin{itemize}
+    \item \textbf{Feature Extraction Latency:} Classical methods (MFCC) require negligible CPU time ($\ll 1$ ms/sample). In contrast, DFAT requires sequential passes through three large models (WavLM 94M parameters, Whisper 244M parameters, and PhoBERT 135M parameters), dominating the end-to-end inference time and strictly requiring a GPU.
+    \item \textbf{Classifier Latency:} Once features are extracted, the Random Forest and XGBoost classifiers execute in sub-milliseconds. 
+\end{itemize}
+Therefore, while MFCC+RF offers the best cost-efficiency ratio for edge deployment, DFAT represents a heavy-compute, high-accuracy paradigm strictly suited for cloud environments where transcription latency can be absorbed.
 
 \chapter{Error Analysis}
 
-Analysis of the confusion matrices highlights remaining challenges in emotion separation. Concrete examples from the DFAT confusion matrix reveal:
+Detailed analysis of the confusion matrices highlights remaining structural challenges in emotion separation. We specifically analyze two major confusion pairs from the DFAT results:
+
 \begin{itemize}
-    \item \textbf{Happy $\rightarrow$ Neutral (31 cases)}: High-pitched conversational Vietnamese can sound neutral without lexical markers. Whisper may transcribe these ambiguously, leading the linguistic stream to falter.
-    \item \textbf{Sad $\rightarrow$ Neutral (20 cases)}: Both states exhibit low acoustic energy. Furthermore, PhoBERT embeddings for low-affect, short speech segments tend to cluster very closely in the embedding space.
+    \item \textbf{Happy $\rightarrow$ Neutral (31 cases)}: In Vietnamese, conversational ``Happy'' speech often lacks the dramatic pitch elevation seen in staged acting. When speakers express mild happiness, the acoustic profile flattens, resembling neutrality. Without strong lexical markers (e.g., explicit words of joy), the ASR-derived text also reads as neutral. Whisper may further transcribe these rapid conversational segments ambiguously, leading both the acoustic and linguistic streams to default to the majority ``Neutral'' class.
+    \item \textbf{Sad $\rightarrow$ Neutral (20 cases)}: Both states exhibit low acoustic energy, narrow pitch ranges, and slower speaking rates. In the linguistic stream, PhoBERT embeddings for short, low-affect speech segments tend to cluster tightly in the semantic space. When a user sighs or speaks briefly, Whisper often outputs truncated text, stripping away the phonetic nuances of sadness and causing the model to misclassify it as Neutral.
 \end{itemize}
 
 \section{ASR Error Propagation}
