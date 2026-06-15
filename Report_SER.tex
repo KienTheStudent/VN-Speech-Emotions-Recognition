@@ -29,8 +29,25 @@
 This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. Four additional secondary baselines are included for comprehensive comparison. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by cryptographic checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
 \end{abstract}
 
-\tableofcontents
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+I would like to express my sincere gratitude to my advisors, professors, and peers for their invaluable guidance and support throughout this thesis.
 
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+\begin{tabbing}
+\textbf{ASR} \hspace{2cm} \= Automatic Speech Recognition \\
+\textbf{DFAT} \> Dual-stream Feature Aggregation \\
+\textbf{MFCC} \> Mel-Frequency Cepstral Coefficients \\
+\textbf{SER} \> Speech Emotion Recognition \\
+\textbf{TDNN} \> Time-Delay Neural Network \\
+\end{tabbing}
+
+\tableofcontents
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
 \chapter{Introduction}
 Speech emotion recognition (SER) is a critical task in human-computer interaction, sentiment analysis, call center analytics, and mental health monitoring. Unlike traditional speech recognition (which focuses on what is said), SER aims to identify the emotional state conveyed in a person's voice. Emotions in speech are characterized by distinctive acoustic patterns: frequency content, energy distribution, temporal dynamics, and spectral shapes differ measurably between emotions such as anger, happiness, neutrality, and sadness.
 
@@ -46,8 +63,8 @@ This thesis provides several key contributions:
     \item A transparent evaluation protocol utilizing cryptographic checksums to enforce a strict speaker-independent split, exposing the generalization limits of classical methods.
 \end{itemize}
 
-\section{Problem Statement}
-This work presents a systematic evaluation of multiple SER approaches on Vietnamese speech, comparing feature-based classical methods with contemporary deep learning techniques and a proposed ASR-assisted audio-linguistic fusion system. We address the following research questions:
+\chapter{Objectives}
+This work presents a systematic evaluation of multiple SER approaches on Vietnamese speech, comparing feature-based classical methods with contemporary deep learning techniques and a proposed ASR-assisted audio-linguistic fusion system. The primary objectives are to address the following research questions:
 
 \begin{itemize}
     \item \textbf{RQ1}: How do handcrafted MFCC features compare with end-to-end deep learning (Simplified ECAPA-TDNN baseline) for Vietnamese SER on ViSEC?
@@ -70,8 +87,9 @@ ECAPA-TDNN~\cite{ecapa} is a specialized architecture combining Time-Delay Neura
 \section{Multimodal and Fusion-Based SER}
 Multimodal SER approaches combine multiple signal modalities (audio, text, video) to improve recognition accuracy~\cite{ser_multimodal}. In this work, we use Whisper~\cite{whisper} encoder embeddings as ASR-derived linguistic features. Since the text modality is inferred from audio via ASR rather than being an independent source, we characterize our approach as \emph{ASR-assisted audio-linguistic fusion} rather than true multimodal text fusion.
 
-\chapter{Dataset Audit: ViSEC}
+\chapter{Materials and Methods}
 
+\section{Dataset: ViSEC}
 The Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec} is publicly available on Hugging Face and contains 5,280 audio utterances from 147 speakers. Each utterance is a single-channel, 16 kHz WAV file annotated with one of four emotion labels.
 
 \begin{table}[h]
@@ -98,7 +116,7 @@ The class distribution exhibits mild imbalance (Neutral-to-Sad ratio $\approx 1.
 \label{sec:split_protocol}
 We use a strictly enforced speaker-independent split: approx. 80\% Train, 10\% Validation, 10\% Test, generated once via our refined algorithm and stored in a manifest file (\texttt{split\_manifest.json}) with a SHA256 checksum to prevent manual tampering. All models read from this manifest to ensure evaluation on the identical test set. A strict contract verifies the hash of the manifest file during evaluation.
 
-\chapter{Methodology}
+\section{Proposed Architectures}
 
 We structure our evaluation around three primary models representing distinct paradigms, supplemented by four secondary baselines.
 
@@ -122,21 +140,21 @@ Our proposed Dual-stream Feature Aggregation system (DFAT) is an \emph{ASR-assis
 \section{Secondary Baselines}
 For comprehensive comparison, we also evaluate: MFCC+SVM (RBF, $C=10$), MFCC+XGBoost (300 trees, $\text{max\_depth}=8$), WavLM+LogReg, and WavLM+SVM (RBF, $C=5$).
 
-\chapter{Experimental Protocol}
+\section{Experimental Protocol}
 
-\section{Infrastructure}
+\subsection{Infrastructure}
 All experiments were executed on an NVIDIA RTX 5060 Ti GPU.
 
-\section{Evaluation Metrics}
+\subsection{Evaluation Metrics}
 We report Weighted F1-Score (primary metric), Macro F1-Score, Accuracy, per-class metrics, and confusion matrices. Inference latency is measured strictly end-to-end (feature extraction + classifier fwd) to ensure an apples-to-apples comparison.
 
-\section{Statistical Robustness}
+\subsection{Statistical Robustness}
 To ensure the robustness of our findings, classical stochastic pipelines (RF, XGBoost) are trained and evaluated over 5 random seeds to report mean $\pm$ standard deviation. Deterministic models (LogReg, SVC-RBF) are evaluated once. For the deep models (ECAPA-TDNN and DFAT), performance metrics are derived from their pre-calculated evaluation metadata over a standardized run, ensuring reproducibility without requiring full multi-seed GPU reruns during the benchmark script.
 
-\section{Leak-Free Protocol}
+\subsection{Leak-Free Protocol}
 All hyperparameter tuning (Optuna) and model selection decisions use the validation set exclusively. The results are fully reproducible via cryptographic split verification.
 
-\chapter{Baselines and Results}
+\chapter{Results and Discussion}
 
 \section{Comparative Benchmark}
 
@@ -219,7 +237,7 @@ Sad     & 0.784 & 0.704 & 0.741 & 108 \\
     \label{fig:confusion_matrices}
 \end{figure*}
 
-\chapter{Ablation Study}
+\section{Ablation Study}
 
 To understand the contribution of each component, we conduct an extensive ablation study on the DFAT pipeline. Results are shown in Table~\ref{tab:ablation}.
 
@@ -246,20 +264,20 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 \label{tab:ablation}
 \end{table}
 
-\chapter{Discussion}
+\section{Discussion}
 
-\section{RQ1: Classical Baselines and the Impact of Speaker-Independent Splits}
+\subsection{RQ1: Classical Baselines and the Impact of Speaker-Independent Splits}
 Under our strict speaker-independent protocol, the classical MFCC+RF pipeline achieves substantially lower performance compared to historical benchmarks on ViSEC. Previous benchmarks often utilized random stratified sampling, which inherently allows speaker identity leakage between the train and test sets. In such scenarios, classical ML models inadvertently memorize speaker-specific acoustic features rather than generalized emotion patterns. By enforcing a strict cryptographic split where test speakers are completely unseen during training, we expose the genuine generalization ceiling of handcrafted MFCC features. The deep learning ECAPA-TDNN baseline, designed explicitly for generalized representation learning, experiences a far smaller drop and significantly outperforms the classical pipeline, proving its robustness across diverse vocal tracts.
 
-\section{RQ2: ASR-Assisted Fusion -- Where DFAT Wins and Loses}
+\subsection{RQ2: ASR-Assisted Fusion -- Where DFAT Wins and Loses}
 DFAT Late Fusion Ensemble demonstrates substantial improvements over audio-only baselines, but the gains are not uniform across all emotion classes. 
 \textbf{Where DFAT Wins:} The improvement is most pronounced for the \textit{Neutral} class, which is acoustically ambiguous. Neutral speech often lacks distinct prosodic markers, causing audio-only models like ECAPA-TDNN to struggle. By incorporating ASR-derived linguistic embeddings (PhoBERT), DFAT leverages lexical cues to disambiguate Neutral utterances successfully, lifting its F1-score significantly.
 \textbf{Where DFAT Loses:} DFAT struggles when transcription noise overwhelms the linguistic stream. Rapid, highly emotional outbursts (especially \textit{Happy} or \textit{Angry}) often cause Whisper to drop or misinterpret words. In these instances, the corrupted text forces the PhoBERT embedding into out-of-distribution spaces, causing the fusion system to misclassify the utterance.
 
-\section{RQ3: Component Contributions via Ablation}
+\subsection{RQ3: Component Contributions via Ablation}
 The ablation study confirms that both streams provide complementary signals. While the WavLM acoustic stream provides the primary discriminative power, the linguistic stream acts as a critical regularizer for acoustically overlapping classes. Furthermore, substituting Whisper-small with Whisper-tiny causes performance to drop precipitously, confirming the entire pipeline's high sensitivity to the underlying ASR quality. Early fusion (concatenation) underperforms compared to Late Fusion because it forces the classifier to directly model the noise in the Whisper transcripts, whereas Late Fusion allows the ensemble to intelligently weight the stream probabilities to marginalize transcription errors.
 
-\section{RQ4: Compute Trade-Off (Feature Extraction vs. Classifier Latency)}
+\subsection{RQ4: Compute Trade-Off (Feature Extraction vs. Classifier Latency)}
 When evaluating cost-efficiency, we must decompose latency into two axes: feature extraction and classifier execution.
 \begin{itemize}
     \item \textbf{Feature Extraction Latency:} Classical methods (MFCC) require negligible CPU time ($\ll 1$ ms/sample). In contrast, DFAT requires sequential passes through three large models (WavLM 94M parameters, Whisper 244M parameters, and PhoBERT 135M parameters), dominating the end-to-end inference time and strictly requiring a GPU.
@@ -267,7 +285,7 @@ When evaluating cost-efficiency, we must decompose latency into two axes: featur
 \end{itemize}
 Therefore, while MFCC+RF offers the best cost-efficiency ratio for edge deployment, DFAT represents a heavy-compute, high-accuracy paradigm strictly suited for cloud environments where transcription latency can be absorbed.
 
-\chapter{Error Analysis}
+\section{Error Analysis}
 
 Detailed analysis of the confusion matrices highlights remaining structural challenges in emotion separation. We specifically analyze two major confusion pairs from the DFAT results:
 
@@ -276,12 +294,12 @@ Detailed analysis of the confusion matrices highlights remaining structural chal
     \item \textbf{Sad $\rightarrow$ Neutral (20 cases)}: Both states exhibit low acoustic energy, narrow pitch ranges, and slower speaking rates. In the linguistic stream, PhoBERT embeddings for short, low-affect speech segments tend to cluster tightly in the semantic space. When a user sighs or speaks briefly, Whisper often outputs truncated text, stripping away the phonetic nuances of sadness and causing the model to misclassify it as Neutral.
 \end{itemize}
 
-\section{ASR Error Propagation}
+\subsection{ASR Error Propagation}
 Whisper's transcription errors introduce significant noise into the linguistic stream. The ablation with synthetic text perturbation demonstrates a monotonic performance degradation, confirming that ASR-assisted fusion is highly sensitive to the underlying transcription accuracy. Word segmentation errors via Underthesea also cascade into the PhoBERT contextual representation.
 
-\chapter{Threats to Validity and Ethics}
+\section{Threats to Validity and Ethics}
 
-\section{Threats to Validity}
+\subsection{Threats to Validity}
 To properly frame our findings, we identify the following key threats to validity:
 \begin{table}[h]
 \centering
@@ -299,10 +317,11 @@ To properly frame our findings, we identify the following key threats to validit
 \label{tab:threats}
 \end{table}
 
-\section{Reproducibility and Ethics}
+\subsection{Reproducibility and Ethics}
 All code for the experimental setup, data splitting, training loops, and benchmarking was written in Python. A cryptographic checksum ensures that all methods are evaluated against identical data splits. A structured validation script guarantees that the reported LaTeX metrics strictly match the generated JSON output. No personally identifiable information was extracted.
 
-\chapter{Conclusion}
+\chapter{Conclusion and Perspectives}
+\section{Conclusion}
 This thesis systematically evaluated speech emotion recognition approaches on the ViSEC dataset under a strict leak-free, speaker-independent evaluation protocol. Key findings:
 \begin{enumerate}
     \item \textbf{DFAT ASR-assisted fusion is the best overall method}.
@@ -311,6 +330,13 @@ This thesis systematically evaluated speech emotion recognition approaches on th
     \item \textbf{Ablation confirms both streams contribute}.
     \item \textbf{Leak-free evaluation reveals lower absolute scores} than previously reported, underscoring the importance of strict Train/Val/Test separation.
 \end{enumerate}
+
+\section{Perspectives and Future Work}
+While DFAT establishes a strong baseline for ASR-assisted SER on Vietnamese, several avenues remain for future exploration. The high latency of sequential processing suggests that end-to-end multi-task learning (simultaneously predicting transcription and emotion) could provide similar benefits at a fraction of the computational cost. Additionally, extending the benchmark to include visual modalities (e.g., facial expressions) would yield a truly multimodal system, overcoming the limitations of pseudo-multimodality. Finally, expanding the dataset with more diverse, spontaneous conversational data will be critical to addressing speaker imbalance and improving real-world generalization.
+
+\appendix
+\chapter{Supplementary Material}
+The source code, detailed hyperparameter configurations, and reproduction scripts for all experiments are available in the associated GitHub repository. The cryptographic verification module for the dataset split is provided in \texttt{generate\_splits.py}.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
