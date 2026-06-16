@@ -44,9 +44,9 @@ to report mean $\pm$ standard deviation, while computationally heavy deep models
 Driven by Weighted F1 as the primary anchor metric, results on the held-out
 test set demonstrate that DFAT Late Fusion achieves the best performance.
 It outperforms the baseline MFCC+RandomForest and ECAPA-TDNN by significant
-margins. Ablation studies confirm that both acoustic and linguistic streams
-contribute to DFAT's superiority, with the linguistic stream providing the
-largest gains for acoustically ambiguous classes.
+margins. Ablation studies confirm that the linguistic stream serves as a valuable
+supplementary signal in early-fusion setups, though late stream-level fusion is not 
+unconditionally superior to acoustic-only baselines.
 \end{abstract}
 
 \chapter*{Acknowledgements}
@@ -289,7 +289,7 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 \label{tab:ablation}
 \end{table}
 
-\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, proving that ASR text alone is vastly insufficient to determine emotion. However, their combination creates a system superior to both. Furthermore, downgrading Whisper-small to Whisper-tiny drops the linguistic performance precipitously, confirming that the entire fusion pipeline's success is highly dependent on the quality of the ASR transcript.
+\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, proving that ASR text alone is vastly insufficient to determine emotion. While the heavily optimized full DFAT pipeline achieves state-of-the-art results, simple uncalibrated fusion (Early Fusion at 0.3995 or stream-level Late Fusion at 0.3408) can actually underperform the acoustic-only baseline (0.4329). This indicates that the linguistic stream acts best as a supplementary signal rather than an independent equal, and highlights the difficulty of fusing modalities when the ASR text is noisy. Furthermore, downgrading Whisper-small to Whisper-tiny drops the linguistic performance precipitously, confirming that fusion success is highly dependent on the quality of the ASR transcript.
 
 \section{Efficiency and Trade-Off}
 A practical deployment requires analyzing the compute cost.

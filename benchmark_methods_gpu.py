@@ -289,7 +289,7 @@ def main():
                 "feature_extraction_ms_per_sample": None,
                 "classifier_ms_per_sample": None,
                 "total_e2e_ms_per_sample": None,
-                "note": latency_note,
+                "note": "N/A (GPU-bound, not comparable with CPU baselines)"
             },
             "representative_run": meta.get("representative_run", {
                 "seed": 42,
@@ -304,10 +304,10 @@ def main():
         print(f"  {method_name} (from metadata): wF1={entry['f1_weighted_mean']:.4f} ± {entry['f1_weighted_std']:.4f}")
         return entry
 
-    e_res = read_deep_model(ecapa_meta_path, "ECAPA-TDNN (simplified implementation)", "GPU-bound; mel-spec + neural fwd")
+    e_res = read_deep_model(ecapa_meta_path, "ECAPA-TDNN (simplified implementation)", "N/A (GPU-bound, not comparable with CPU baselines)")
     if e_res: results.append(e_res)
     
-    d_res = read_deep_model(dfat_meta_path, "DFAT Late Fusion", "GPU-bound; WavLM + Whisper + PhoBERT")
+    d_res = read_deep_model(dfat_meta_path, "DFAT Late Fusion", "N/A (GPU-bound, not comparable with CPU baselines)")
     if d_res: results.append(d_res)
 
     # 5. Rank and save

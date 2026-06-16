@@ -41,7 +41,7 @@
         "feature_extraction_ms_per_sample": null,
         "classifier_ms_per_sample": null,
         "total_e2e_ms_per_sample": null,
-        "note": "GPU-bound; requires WavLM + Whisper ASR + PhoBERT extraction"
+        "note": "N/A (GPU-bound, not comparable with CPU baselines)"
       },
       "representative_run": {
         "seed": 42,
@@ -132,7 +132,7 @@
         "feature_extraction_ms_per_sample": null,
         "classifier_ms_per_sample": null,
         "total_e2e_ms_per_sample": null,
-        "note": "GPU-bound; requires mel-spectrogram extraction + neural forward pass"
+        "note": "N/A (GPU-bound, not comparable with CPU baselines)"
       },
       "representative_run": {
         "seed": 42,

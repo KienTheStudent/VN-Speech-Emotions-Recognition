@@ -14,9 +14,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-# Ensure internal package is importable
-sys.path.insert(0, str(ROOT))
-
 from internal.split_validator import validate_manifest
 from internal.sync_results import (
     load_json, generate_md_benchmark, generate_md_ablation,

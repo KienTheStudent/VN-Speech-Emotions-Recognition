@@ -44,8 +44,8 @@ The thesis follows a three-tier comparison:
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | GPU-bound |
-| **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | GPU-bound |
+| **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | N/A (GPU-bound, not comparable with CPU baselines) |
+| **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | N/A (GPU-bound, not comparable with CPU baselines) |
 | **MFCC+RandomForest** | **Primary** | 0.3651 ± 0.0094 | 0.3513 | 0.3939 | 3.23 ms |
 <!-- END_BENCHMARK_TABLE -->
 
