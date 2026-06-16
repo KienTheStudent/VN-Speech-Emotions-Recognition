@@ -7,15 +7,11 @@ Evaluates:
     2. ECAPA-TDNN           (results read from ECAPA/emotion_model/metadata.json)
     3. DFAT Late Fusion     (results read from DFAT_Hybrid_Fusion/dualstream_model/metadata.json)
 
-  SECONDARY BASELINES (appendix / supplementary):
-    4. MFCC + SVM
-    5. MFCC + XGBoost
-    6. WavLM + LogReg
-    7. WavLM + SVM
+
 
 Methodology fixes:
-  - Deterministic methods (SVM-RBF, LogReg) are run ONCE.
-  - Stochastic methods (RF, XGB) are run 5 times with seeds [42, 123, 456, 789, 2026].
+  - Deep methods are run ONCE.
+  - Stochastic classical methods (RF) are run 5 times with seeds [42, 123, 456, 789, 2026].
   - Apples-to-apples latency measures End-to-End time per sample.
   - Silent sample loss during audio loading is tracked and asserted.
   - Split manifest checksum is verified.
@@ -32,7 +28,6 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -40,9 +35,6 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.svm import SVC
-from transformers import AutoFeatureExtractor, AutoModel
-from xgboost import XGBClassifier
 
 from split_validator import validate_manifest
 
@@ -85,24 +77,11 @@ def load_audio(path_dict, sr=16000):
 class FeatureExtractor:
     def __init__(self, method):
         self.method = method
-        if method == "wavlm":
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.extractor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-            self.model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(self.device).eval()
-            # Warm up GPU
-            dummy = torch.zeros(1, 16000).to(self.device)
-            with torch.no_grad(): self.model(dummy)
         
     def extract(self, audio):
         if self.method == "mfcc":
             mfcc = librosa.feature.mfcc(y=audio, sr=16000, n_mfcc=40)
             return np.mean(mfcc, axis=1)
-        elif self.method == "wavlm":
-            inputs = self.extractor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            with torch.no_grad():
-                out = self.model(**inputs)
-            return out.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
 
 
 def evaluate_single_seed(clf_factory, x_train, y_train, x_test, y_test, label_names, seed):
@@ -228,29 +207,10 @@ def evaluate_pipeline(name, clf_factory, feat_type, is_stochastic,
 
 # ==================== CLASSIFIER FACTORIES ====================
 
-def make_svm_factory(C=10.0):
-    def factory(seed):
-        return SVC(kernel="rbf", C=C, gamma="scale", random_state=seed) # SVC-RBF is deterministic without prob
-    return factory, False
-
 def make_rf_factory(n_estimators=300):
     def factory(seed):
         return RandomForestClassifier(n_estimators=n_estimators, random_state=seed, n_jobs=-1)
     return factory, True
-
-def make_xgb_factory(n_estimators=300, max_depth=8, lr=0.08):
-    def factory(seed):
-        return XGBClassifier(
-            n_estimators=n_estimators, max_depth=max_depth, learning_rate=lr,
-            subsample=0.9, colsample_bytree=0.9, random_state=seed,
-            eval_metric="mlogloss",
-        )
-    return factory, True
-
-def make_logreg_factory():
-    def factory(seed):
-        return LogisticRegression(max_iter=1000, random_state=seed) # Default lbfgs is deterministic
-    return factory, False
 
 
 # ==================== MAIN ====================
@@ -270,11 +230,11 @@ def main():
     df["label"] = le.fit_transform(df["emotion"])
     label_names = le.classes_.tolist()
 
-    trainval_idx = manifest["train_indices"] + manifest["val_indices"]
+    train_idx = manifest["train_indices"]
     test_idx = manifest["test_indices"]
 
-    trainval_paths = df["path"].iloc[trainval_idx].values
-    trainval_labels = df["label"].iloc[trainval_idx].values
+    train_paths = df["path"].iloc[train_idx].values
+    train_labels = df["label"].iloc[train_idx].values
     test_paths = df["path"].iloc[test_idx].values
     test_labels = df["label"].iloc[test_idx].values
 
@@ -285,31 +245,7 @@ def main():
     rf_factory, rf_stoch = make_rf_factory(300)
     results.append(evaluate_pipeline(
         "MFCC+RandomForest", rf_factory, "mfcc", rf_stoch,
-        trainval_paths, trainval_labels, test_paths, test_labels, label_names, rejected_log
-    ))
-
-    svm_factory, svm_stoch = make_svm_factory(10.0)
-    results.append(evaluate_pipeline(
-        "MFCC+SVM", svm_factory, "mfcc", svm_stoch,
-        trainval_paths, trainval_labels, test_paths, test_labels, label_names, rejected_log
-    ))
-
-    xgb_factory, xgb_stoch = make_xgb_factory(300, 8, 0.08)
-    results.append(evaluate_pipeline(
-        "MFCC+XGBoost", xgb_factory, "mfcc", xgb_stoch,
-        trainval_paths, trainval_labels, test_paths, test_labels, label_names, rejected_log
-    ))
-
-    lr_factory, lr_stoch = make_logreg_factory()
-    results.append(evaluate_pipeline(
-        "WavLM+LogReg", lr_factory, "wavlm", lr_stoch,
-        trainval_paths, trainval_labels, test_paths, test_labels, label_names, rejected_log
-    ))
-
-    wavlm_svm_factory, w_svm_stoch = make_svm_factory(5.0)
-    results.append(evaluate_pipeline(
-        "WavLM+SVM", wavlm_svm_factory, "wavlm", w_svm_stoch,
-        trainval_paths, trainval_labels, test_paths, test_labels, label_names, rejected_log
+        train_paths, train_labels, test_paths, test_labels, label_names, rejected_log
     ))
 
     # 3. Handle rejected samples
@@ -376,7 +312,6 @@ def main():
     ranked = sorted(results, key=lambda x: x["f1_weighted_mean"], reverse=True)
 
     primary_models_list = ["MFCC+RandomForest", "ECAPA-TDNN (simplified implementation)", "DFAT Late Fusion"]
-    secondary_models_list = ["MFCC+SVM", "MFCC+XGBoost", "WavLM+LogReg", "WavLM+SVM"]
 
     global_best = ranked[0]["method"] if ranked else None
     primary_ranked = [r for r in ranked if r["method"] in primary_models_list]
@@ -384,15 +319,14 @@ def main():
 
     summary = {
         "protocol": "Leak-free benchmark on full ViSEC, Apples-to-Apples Eval",
-        "split": "80% Train+Val / 10% Test (from split_manifest.json)",
+        "split": "80% Train / 10% Test (from split_manifest.json)",
         "samples_total": int(len(df)),
-        "trainval_size": int(len(trainval_idx)),
+        "train_size": int(len(train_idx)),
         "test_size": int(len(test_idx)),
         "seeds": SEEDS,
         "device": "cpu/cuda",
         "emotion_labels": label_names,
         "primary_models": primary_models_list,
-        "secondary_models": secondary_models_list,
         "ranked_results": ranked,
         "global_best_method": global_best,
         "primary_best_method": primary_best,
