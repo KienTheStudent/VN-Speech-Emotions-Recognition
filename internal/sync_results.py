@@ -46,7 +46,7 @@ def validate_benchmark_schema(data):
     """Strictly validate benchmark JSON schema."""
     if not isinstance(data, dict): raise ValueError("Benchmark JSON must be an object.")
     
-    required_keys = ["ranked_results", "primary_models", "secondary_models"]
+    required_keys = ["ranked_results", "primary_models"]
     for k in required_keys:
         if k not in data: raise ValueError(f"Benchmark schema missing required key: {k}")
         
@@ -82,12 +82,12 @@ def generate_md_benchmark(data):
 
     sorted_results = sorted(
         data["ranked_results"],
-        key=lambda x: (0 if x["method"] in primary else 1, -x.get("f1_weighted_mean", 0))
+        key=lambda x: -x.get("f1_weighted_mean", 0)
     )
 
     for r in sorted_results:
         name = r["method"]
-        cat = "**Primary**" if name in primary else "Secondary"
+        cat = "**Primary**"
         wf1_mean = r.get("f1_weighted_mean", 0)
         wf1_std = r.get("f1_weighted_std", 0)
         wf1 = fmt_pm(wf1_mean, wf1_std)
@@ -141,26 +141,15 @@ def generate_tex_benchmark(data):
 
     primary = data.get("primary_models", [])
     
-    # Sort results: Primary models first (by F1 score descending), then Secondary models (by F1 score descending)
     sorted_results = sorted(
         data["ranked_results"],
-        key=lambda x: (0 if x["method"] in primary else 1, -x.get("f1_weighted_mean", 0))
+        key=lambda x: -x.get("f1_weighted_mean", 0)
     )
 
     # Group by category
-    current_cat = None
     for r in sorted_results:
         name = r["method"]
-        is_primary = name in primary
-
-        if is_primary and current_cat != "primary":
-            lines.append(r"\multicolumn{5}{l}{\textit{Primary Models}} \\")
-            current_cat = "primary"
-        elif not is_primary and current_cat != "secondary":
-            if current_cat is not None:
-                lines.append(r"\midrule")
-            lines.append(r"\multicolumn{5}{l}{\textit{Secondary Baselines}} \\")
-            current_cat = "secondary"
+        is_primary = True
 
         wf1 = fmt(r.get("f1_weighted_mean", 0))
         raw_std = r.get("f1_weighted_std", 0)
