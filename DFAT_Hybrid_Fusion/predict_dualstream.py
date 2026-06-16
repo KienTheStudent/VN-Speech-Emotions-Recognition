@@ -121,9 +121,48 @@ def predict_emotion(audio_path, model_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('audio_file', type=str)
+    parser.add_argument('--audio_file', type=str, help="Path to single audio file")
     parser.add_argument('--model_dir', type=str, required=True)
+    parser.add_argument('--test_set', action='store_true', help="Evaluate on the full test set")
     args = parser.parse_args()
     
-    result = predict_emotion(args.audio_file, args.model_dir)
-    print(json.dumps(result))
+    if args.test_set:
+        from datasets import load_dataset
+        from sklearn.metrics import classification_report, confusion_matrix
+        import os
+        
+        manifest_path = Path(args.model_dir).parent.parent / "split_manifest.json"
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
+            
+        test_idx = manifest["test_indices"]
+        dataset = load_dataset("hustep-lab/ViSEC", trust_remote_code=True)
+        df = dataset["train"].to_pandas()[["path", "emotion"]].copy()
+        test_paths = df["path"].iloc[test_idx].values
+        test_labels_raw = df["emotion"].iloc[test_idx].values
+        
+        y_true = []
+        y_pred = []
+        
+        print(f"Evaluating on {len(test_paths)} test samples...")
+        for i, (p, true_emotion) in enumerate(zip(test_paths, test_labels_raw)):
+            if i % 10 == 0:
+                print(f"Processed {i}/{len(test_paths)}")
+            try:
+                res = predict_emotion(p, args.model_dir)
+                pred_emotion = max(res, key=res.get)
+                y_true.append(true_emotion)
+                y_pred.append(pred_emotion)
+            except Exception as e:
+                print(f"Error processing {p}: {e}")
+                
+        print("\nClassification Report:")
+        print(classification_report(y_true, y_pred))
+        print("Confusion Matrix:")
+        print(confusion_matrix(y_true, y_pred))
+        
+    elif args.audio_file:
+        result = predict_emotion(args.audio_file, args.model_dir)
+        print(json.dumps(result))
+    else:
+        print("Please provide either --audio_file or --test_set")
