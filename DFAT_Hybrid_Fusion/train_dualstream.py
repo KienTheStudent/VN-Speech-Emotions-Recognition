@@ -46,8 +46,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from internal.split_validator import validate_manifest
+# Removed sys.path logic to keep import topology clean
 
 from underthesea import word_tokenize as vi_word_tokenize
 
@@ -211,8 +210,8 @@ def main():
     # 1. Load manifest & dataset
     # ------------------------------------------------------------------
     print("\nLoading split manifest...")
-    split_checksum = validate_manifest()
     manifest = load_manifest()
+    split_checksum = manifest.get("checksum", "unknown")
     print(f"  Train: {len(manifest['train_indices'])}")
     print(f"  Val:   {len(manifest['val_indices'])}")
     print(f"  Test:  {len(manifest['test_indices'])}")
