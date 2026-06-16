@@ -1,8 +1,9 @@
 {
-  "protocol": "Leak-free benchmark on full ViSEC, 5-seed repeated evaluation",
-  "split": "80% Train+Val / 10% Test (from split_manifest.json)",
+  "protocol": "Leak-free benchmark on full ViSEC, Apples-to-Apples Eval",
+  "split": "80% Train / 10% Validation / 10% Test (from split_manifest.json)",
   "samples_total": 5280,
-  "trainval_size": 4752,
+  "train_size": 4224,
+  "val_size": 528,
   "test_size": 528,
   "seeds": [
     42,

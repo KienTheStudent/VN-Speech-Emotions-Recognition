@@ -270,7 +270,9 @@ def main():
             meta = json.load(f)
             
         # Verify hash contract
-        if "split_checksum" in meta and meta["split_checksum"] != manifest_checksum:
+        if "split_checksum" not in meta:
+            raise ValueError(f"Metadata {meta_path} is missing 'split_checksum'! Provenance cannot be verified.")
+        if meta["split_checksum"] != manifest_checksum:
             raise ValueError(f"Metadata {meta_path} checksum mismatch! The model was trained on an older split. Please retrain.")
             
         entry = {
@@ -319,9 +321,10 @@ def main():
 
     summary = {
         "protocol": "Leak-free benchmark on full ViSEC, Apples-to-Apples Eval",
-        "split": "80% Train / 10% Test (from split_manifest.json)",
+        "split": "80% Train / 10% Validation / 10% Test (from split_manifest.json)",
         "samples_total": int(len(df)),
-        "train_size": int(len(train_idx)),
+        "train_size": int(len(manifest["train_indices"])),
+        "val_size": int(len(manifest["val_indices"])),
         "test_size": int(len(test_idx)),
         "seeds": SEEDS,
         "device": "cpu/cuda",
