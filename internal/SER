@@ -88,66 +88,13 @@ print(f"  - Train: {len(X_train)} samples")
 print(f"  - Val:   {len(X_val)} samples")
 print(f"  - Test:  {len(X_test)} samples")
 
+
 # %% [cell 4 - MARKDOWN]
-# ## Model 1: SVM with MFCC Features
+# ## Model 1: Random Forest with MFCC Features
 
 # %% [cell 5 - CODE]
-# ==================== PART 2: MODEL 1 - SVM with MFCC ====================
-print("🤖 MODEL 1: SVM with MFCC Features")
-
-from benchmark_methods_gpu import load_audio, mfcc_feature, evaluate_method
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, confusion_matrix
-import time
-
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next(r for r in bench_res['ranked_results'] if r['method'] == 'MFCC+SVM')
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-    
-    cm = np.array(res['confusion_matrix'])
-    plt.figure(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=emotion_labels, yticklabels=emotion_labels)
-    plt.title("SVM Confusion Matrix (Test Set)")
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
-    plt.show()
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    mfcc_train, mfcc_y_train = [], []
-    for p, y in zip(X_trainval, y_trainval):
-        audio = load_audio(p)
-        if audio is not None:
-            mfcc_train.append(mfcc_feature(audio))
-            mfcc_y_train.append(y)
-            
-    mfcc_test, mfcc_y_test = [], []
-    for p, y in zip(X_test, y_test):
-        audio = load_audio(p)
-        if audio is not None:
-            mfcc_test.append(mfcc_feature(audio))
-            mfcc_y_test.append(y)
-            
-    scaler = StandardScaler()
-    mfcc_train = scaler.fit_transform(mfcc_train)
-    mfcc_test = scaler.transform(mfcc_test)
-    
-    clf = SVC(kernel="rbf", C=10.0, gamma="scale", random_state=42)
-    res = evaluate_method("MFCC+SVM", clf, mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, emotion_labels)
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-
-# %% [cell 6 - MARKDOWN]
-# ## Model 2: Random Forest with MFCC Features
-
-# %% [cell 7 - CODE]
-# ==================== PART 3: MODEL 2 - Random Forest with MFCC ====================
-print("🤖 MODEL 2: Random Forest with MFCC Features")
+# ==================== PART 2: MODEL 1 - Random Forest with MFCC ====================
+print("🤖 MODEL 1: Random Forest with MFCC Features")
 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -166,85 +113,13 @@ else:
     print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
     print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
 
-# %% [cell 8 - MARKDOWN]
-# ## Model 3: XGBoost with MFCC Features
 
-# %% [cell 9 - CODE]
-# ==================== PART 4: MODEL 3 - XGBoost with MFCC ====================
-print("🤖 MODEL 3: XGBoost with MFCC Features")
 
-from xgboost import XGBClassifier
+# %% [cell 6 - MARKDOWN]
+# ## Model 2: ECAPA-TDNN
 
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next(r for r in bench_res['ranked_results'] if r['method'] == 'MFCC+XGBoost')
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    clf = XGBClassifier(n_estimators=300, max_depth=8, learning_rate=0.08,
-                        subsample=0.9, colsample_bytree=0.9, random_state=42, eval_metric="mlogloss")
-    res = evaluate_method("MFCC+XGBoost", clf, mfcc_train, mfcc_y_train, mfcc_test, mfcc_y_test, emotion_labels)
-    print(f"✓ F1 Score (Weighted): {res['f1_weighted']:.4f}")
-    print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-
-# %% [cell 10 - MARKDOWN]
-# ## Model 4: WavLM Baseline
-
-# %% [cell 11 - CODE]
-# ==================== PART 5: MODEL 4 - WavLM Baseline ====================
-print("🤖 MODEL 4: WavLM Feature Extractor + SVM / LogReg")
-
-from transformers import AutoFeatureExtractor, AutoModel
-import torch
-from benchmark_methods_gpu import wavlm_feature
-
-if MODE == "demo":
-    print("✨ DEMO MODE: Loading pre-computed results...")
-    with open("benchmark_results_gpu.json", "r", encoding="utf-8") as f:
-        bench_res = json.load(f)
-    
-    res = next((r for r in bench_res['ranked_results'] if r['method'] == 'WavLM+SVM'), None)
-    if res:
-        print(f"✓ WavLM+SVM F1 Score (Weighted): {res['f1_weighted']:.4f}")
-        print(f"✓ Latency: {res['latency_ms_per_sample']:.2f} ms/sample")
-else:
-    print("🚀 RETRAIN MODE: Training model from scratch...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Extracting WavLM embeddings on {device}...")
-    extractor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-    wavlm = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
-    
-    wavlm_train, wavlm_y_train = [], []
-    for p, y in zip(X_trainval, y_trainval):
-        audio = load_audio(p)
-        if audio is not None:
-            wavlm_train.append(wavlm_feature(audio, extractor, wavlm, device))
-            wavlm_y_train.append(y)
-            
-    wavlm_test, wavlm_y_test = [], []
-    for p, y in zip(X_test, y_test):
-        audio = load_audio(p)
-        if audio is not None:
-            wavlm_test.append(wavlm_feature(audio, extractor, wavlm, device))
-            wavlm_y_test.append(y)
-            
-    scaler = StandardScaler()
-    wavlm_train = scaler.fit_transform(wavlm_train)
-    wavlm_test = scaler.transform(wavlm_test)
-    
-    clf = SVC(kernel="rbf", C=5.0, gamma="scale", random_state=42)
-    res = evaluate_method("WavLM+SVM", clf, wavlm_train, wavlm_y_train, wavlm_test, wavlm_y_test, emotion_labels)
-    print(f"✓ WavLM+SVM F1 Score (Weighted): {res['f1_weighted']:.4f}")
-
-# %% [cell 12 - MARKDOWN]
-# ## Model 5: ECAPA-TDNN
-
-# %% [cell 13 - CODE]
-# ==================== PART 6: ECAPA-TDNN ====================
+# %% [cell 7 - CODE]
+# ==================== PART 3: ECAPA-TDNN ====================
 print("🤖 CREATING AND TRAINING ECAPA-TDNN MODEL")
 
 import sys
@@ -317,11 +192,11 @@ else:
         model.load_state_dict(torch.load('./ECAPA/best_ecapa_model.pth', map_location=device, weights_only=True))
         print(f"\n✓ Best model loaded (Val F1: {best_val_f1:.4f})")
 
-# %% [cell 14 - MARKDOWN]
+# %% [cell 8 - MARKDOWN]
 # ## Model Comparison
 
-# %% [cell 15 - CODE]
-# ==================== PART 7: SUMMARY COMPARISON TABLE ====================
+# %% [cell 9 - CODE]
+# ==================== PART 4: SUMMARY COMPARISON TABLE ====================
 print("📊 SUMMARY COMPARISON TABLE")
 
 if os.path.exists("benchmark_results_gpu.json"):
@@ -368,11 +243,11 @@ if os.path.exists("benchmark_results_gpu.json"):
 else:
     print("Please run the full benchmark to display the comparison table.")
 
-# %% [cell 16 - MARKDOWN]
-# ## Model 6: DFAT Hybrid Fusion (Proposed Method)
+# %% [cell 10 - MARKDOWN]
+# ## Model 3: DFAT Hybrid Fusion (Proposed Method)
 
-# %% [cell 17 - CODE]
-# ==================== PART 8: DFAT HYBRID FUSION ====================
+# %% [cell 11 - CODE]
+# ==================== PART 5: DFAT HYBRID FUSION ====================
 print("🤖 DFAT HYBRID FUSION: WavLM + Whisper")
 
 import sys
