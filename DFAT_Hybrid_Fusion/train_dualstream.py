@@ -47,7 +47,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from split_validator import validate_manifest
+from internal.split_validator import validate_manifest
 
 from underthesea import word_tokenize as vi_word_tokenize
 

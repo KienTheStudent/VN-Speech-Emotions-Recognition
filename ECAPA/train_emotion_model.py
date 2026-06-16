@@ -28,7 +28,7 @@ from torch.utils.data import Dataset, DataLoader
 
 # Import the validator
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from split_validator import validate_manifest
+from internal.split_validator import validate_manifest
 
 warnings.filterwarnings('ignore')
 

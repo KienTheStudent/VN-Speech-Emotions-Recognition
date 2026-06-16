@@ -36,7 +36,7 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from split_validator import validate_manifest
+from internal.split_validator import validate_manifest
 
 warnings.filterwarnings("ignore")
 
