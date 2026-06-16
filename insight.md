@@ -35,11 +35,6 @@ This document captures the detailed setup, metrics, and insights derived from th
 - **Classifiers:** LR, RF, XGBoost (Optuna-tuned on **validation**, 10 trials)
 - **Late Fusion:** Weighted probability ensemble, weights optimized by Optuna (100 trials) on **validation**
 
-### 2.4 Secondary Baselines (Supplementary)
-- MFCC + SVM (RBF, C=10)
-- MFCC + XGBoost (300 trees, max_depth=8)
-- WavLM + Logistic Regression
-- WavLM + SVM (RBF, C=5)
 
 ---
 
@@ -53,10 +48,6 @@ This document captures the detailed setup, metrics, and insights derived from th
 | **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | GPU-bound |
 | **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | GPU-bound |
 | **MFCC+RandomForest** | **Primary** | 0.3651 ± 0.0094 | 0.3513 | 0.3939 | 3.23 ms |
-| WavLM+LogReg | Secondary | 0.4656 | 0.4574 | 0.4640 | 8.73 ms |
-| WavLM+SVM | Secondary | 0.4509 ± 0.0000 | 0.4506 | 0.4527 | 9.96 ms |
-| MFCC+XGBoost | Secondary | 0.3946 ± 0.0103 | 0.3878 | 0.4061 | 3.17 ms |
-| MFCC+SVM | Secondary | 0.3662 | 0.3590 | 0.3674 | 3.28 ms |
 <!-- END_BENCHMARK_TABLE -->
 
 ### 3.2 DFAT Ablation Study
