@@ -64,6 +64,27 @@ def main():
     print("VALIDATING DOCUMENTATION SYNCHRONIZATION")
     print("=" * 60)
 
+
+    from split_validator import validate_manifest
+    try:
+        current_checksum = validate_manifest()
+    except Exception as e:
+        print(f"❌ split_manifest validation failed: {e}")
+        sys.exit(1)
+
+    import json
+    for model_meta in ["DFAT_Hybrid_Fusion/dualstream_model/metadata.json", "ECAPA/emotion_model/metadata.json"]:
+        meta_path = ROOT / model_meta
+        if meta_path.exists():
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+            if meta.get("split_checksum") != current_checksum:
+                print(f"❌ {model_meta} checksum mismatch! The model was trained on a different data split.")
+                sys.exit(1)
+            if "n_seeds" not in meta or "seeds" not in meta:
+                print(f"❌ {model_meta} is missing seeds/n_seeds schema.")
+                sys.exit(1)
+
     bench_data = load_json(BENCHMARK_PATH)
     ablation_data = load_json(ABLATION_PATH)
 
