@@ -4,6 +4,13 @@
 
 This repository implements and evaluates multiple Speech Emotion Recognition approaches on the ViSEC (Vietnamese Speech Emotion Corpus) dataset under a strict **speaker-independent, leak-free evaluation protocol**.
 
+## Project Artifacts
+
+To present a unified narrative, this repository is organized into three main artifacts:
+1. **Academic Report (`Report_SER.tex`)**: The formal, academic source of truth detailing the motivation, methodology, and exhaustive findings.
+2. **Evaluation Pipeline (Scripts)**: The raw Python scripts (`benchmark_methods_gpu.py`, `DFAT_Hybrid_Fusion/`) that enforce the strict, reproducible evaluation protocol.
+3. **Live Demo (`internal/SER.ipynb`)**: An interactive Jupyter Notebook serving purely as a demonstration of the inference pipeline and live audio evaluation.
+
 ## Research Narrative
 
 > **"Does audio-linguistic fusion outperform classical and strong acoustic baselines for Vietnamese SER under speaker-disjoint evaluation?"**
@@ -98,29 +105,30 @@ Audio → [Whisper ASR] → text → [word segmentation] → [PhoBERT] → lingu
 
 ## Repository Structure
 
-```
+```text
 .
-├── benchmark_methods_gpu.py    # Unified benchmark (5-seed repeated eval)
-├── sync_results.py             # Auto-generate tables in README/report/insight
-├── generate_splits.py          # Speaker-independent split generation
-├── split_manifest.json         # Fixed Train/Val/Test manifest
+├── benchmark_methods_gpu.py    # Unified benchmark pipeline (5-seed)
 ├── benchmark_results_gpu.json  # Single source of truth for results
+├── split_manifest.json         # Fixed Train/Val/Test manifest
+├── README.md                   # Project overview & instructions
+├── Report_SER.tex              # Academic thesis and formal findings
+├── insight.md                  # Experimental insight report
 │
-├── ECAPA/
+├── ECAPA/                      # Deep Acoustic Baseline
 │   ├── train_emotion_model.py  # ECAPA-TDNN training script
 │   ├── predict_emotion.py      # ECAPA-TDNN inference
 │   └── emotion_model/          # Trained checkpoint + metadata
 │
-├── DFAT_Hybrid_Fusion/
+├── DFAT_Hybrid_Fusion/         # Proposed Audio-Linguistic Fusion
 │   ├── train_dualstream.py     # DFAT training script
 │   ├── predict_dualstream.py   # DFAT inference
 │   ├── ablation_study.py       # DFAT ablation experiments
 │   └── dualstream_model/       # Trained models + metadata
 │
-├── Report_SER.tex              # LaTeX thesis report
-├── insight.md                  # Experimental insight report
-├── SER.ipynb                   # Live inference notebook
-└── requirements.txt            # Python dependencies
+└── internal/                   # Utilities, generators, and demo
+    ├── SER.ipynb               # Live Inference Demo (Notebook)
+    ├── sync_results.py         # Auto-generates tables in docs
+    └── generate_splits.py      # Split & manifest generator
 ```
 
 ## Quick Start
@@ -152,7 +160,7 @@ python DFAT_Hybrid_Fusion/ablation_study.py
 ### Sync Results to Documentation
 
 ```bash
-python sync_results.py
+python internal/sync_results.py
 ```
 
 ## License
