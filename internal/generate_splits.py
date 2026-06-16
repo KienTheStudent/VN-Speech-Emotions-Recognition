@@ -17,10 +17,8 @@ import hashlib
 from pathlib import Path
 
 from datasets import load_dataset
-from sklearn.model_selection import train_test_split
 
-RANDOM_STATE = 42
-OUTPUT_PATH = Path(__file__).parent / "split_manifest.json"
+OUTPUT_PATH = Path(__file__).parent.parent / "split_manifest.json"
 
 
 def main():
@@ -269,7 +267,6 @@ def main():
         ),
         "dataset": "hustep-lab/ViSEC",
         "total_samples": len(df),
-        "random_state": RANDOM_STATE,
         "split_ratio": "80/10/10 (approx)",
         "stratify_by": "speaker_independent",
         "train_indices": sorted(train_idx),
