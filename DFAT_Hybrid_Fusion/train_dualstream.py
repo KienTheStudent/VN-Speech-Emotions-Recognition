@@ -20,6 +20,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 import optuna
+from optuna.samplers import TPESampler
 import torch
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
@@ -365,7 +366,7 @@ def main():
             pred = model.predict(val_fused)
             return f1_score(val_labels, pred, average="weighted")
 
-        study = optuna.create_study(direction="maximize")
+        study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
         study.optimize(xgb_objective, n_trials=50, show_progress_bar=False)
 
         xgb_model = XGBClassifier(**study.best_params, eval_metric="mlogloss")
@@ -391,7 +392,7 @@ def main():
             ensemble_pred = np.argmax(ensemble_proba, axis=1)
             return f1_score(val_labels, ensemble_pred, average="weighted")
 
-        study2 = optuna.create_study(direction="maximize")
+        study2 = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
         study2.optimize(ensemble_objective, n_trials=50, show_progress_bar=False)
 
         w1, w2, w3 = study2.best_params["w1"], study2.best_params["w2"], study2.best_params["w3"]

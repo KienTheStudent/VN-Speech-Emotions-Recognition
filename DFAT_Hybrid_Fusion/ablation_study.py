@@ -23,6 +23,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 import optuna
+from optuna.samplers import TPESampler
 import torch
 from datasets import load_dataset
 from sklearn.ensemble import RandomForestClassifier
@@ -221,7 +222,7 @@ def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
             m.fit(x_train_s, y_train)
             return f1_score(y_val, m.predict(x_val_s), average="weighted")
 
-        study = optuna.create_study(direction="maximize")
+        study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
         study.optimize(xgb_obj, n_trials=10, show_progress_bar=False)
         xgb = XGBClassifier(**study.best_params, eval_metric="mlogloss")
     else:
@@ -245,7 +246,7 @@ def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
         p = (w1/total)*xgb_val_p + (w2/total)*rf_val_p + (w3/total)*lr_val_p
         return f1_score(y_val, np.argmax(p, axis=1), average="weighted")
 
-    study2 = optuna.create_study(direction="maximize")
+    study2 = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
     study2.optimize(ens_obj, n_trials=50, show_progress_bar=False)
 
     w1, w2, w3 = study2.best_params["w1"], study2.best_params["w2"], study2.best_params["w3"]
@@ -461,7 +462,7 @@ def main():
         p = w_a * rf_ac.predict_proba(x_va_ac) + w_l * rf_lg.predict_proba(x_va_lg)
         return f1_score(val_y, np.argmax(p, axis=1), average="weighted")
 
-    study_late = optuna.create_study(direction="maximize")
+    study_late = optuna.create_study(direction="maximize", sampler=TPESampler(seed=42))
     study_late.optimize(late_obj, n_trials=50, show_progress_bar=False)
     w_a = study_late.best_params["w_acoustic"]
     w_l = 1 - w_a
