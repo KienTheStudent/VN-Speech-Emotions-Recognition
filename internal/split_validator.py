@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 
 def validate_manifest():
-    manifest_path = Path(__file__).parent / "split_manifest.json"
+    manifest_path = Path(__file__).resolve().parent.parent / "split_manifest.json"
     if not manifest_path.exists():
         raise FileNotFoundError("Missing split_manifest.json. Run generate_splits.py first.")
         
