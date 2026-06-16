@@ -26,7 +26,28 @@
 \maketitle
 
 \begin{abstract}
-This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. Four additional secondary baselines are included for comprehensive comparison. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by cryptographic checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
+This thesis presents a systematic comparative benchmark and an ASR-assisted
+audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER)
+on the ViSEC dataset. We evaluate three primary classification pipelines
+representing distinct paradigms: handcrafted features with classical ML
+(MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN),
+and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM
+acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR.
+Four additional secondary baselines are included for comprehensive comparison.
+
+All experiments follow a strict leak-free protocol with a fixed
+speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
+Test ($\approx$ 10\%) split, governed by cryptographic checksums.
+To ensure robust evaluation, classical models are evaluated over 5 random seeds
+to report mean $\pm$ standard deviation, while computationally heavy deep models
+(DFAT, ECAPA-TDNN) are evaluated via single deterministic runs.
+
+Driven by Weighted F1 as the primary anchor metric, results on the held-out
+test set demonstrate that DFAT Late Fusion achieves the best performance.
+It outperforms the baseline MFCC+RandomForest and ECAPA-TDNN by significant
+margins. Ablation studies confirm that both acoustic and linguistic streams
+contribute to DFAT's superiority, with the linguistic stream providing the
+largest gains for acoustically ambiguous classes.
 \end{abstract}
 
 \chapter*{Acknowledgements}
@@ -56,11 +77,26 @@ I would like to express my sincere gratitude to my advisor and professors for th
 \addcontentsline{toc}{chapter}{List of Tables}
 
 \chapter{Introduction}
-Speech emotion recognition (SER) is a critical task in human-computer interaction, sentiment analysis, call center analytics, and mental health monitoring. Unlike traditional speech recognition, SER aims to identify the underlying emotional state conveyed in a person's voice. 
+Speech emotion recognition (SER) is a critical task in human-computer
+interaction, sentiment analysis, call center analytics, and mental health
+monitoring. Unlike traditional speech recognition, SER aims to identify
+the underlying emotional state conveyed in a person's voice.
 
-Vietnamese SER remains a challenging problem due to three main factors: (1) limited availability of large-scale, high-quality annotated datasets, (2) severe speaker leakage in historical benchmarks which inflates model performance, and (3) high acoustic similarity between specific emotion classes (e.g., Sadness and Neutrality) due to narrow pitch ranges. 
+Vietnamese SER remains a challenging problem due to three main factors:
+(1) limited availability of large-scale, high-quality annotated datasets,
+(2) severe speaker leakage in historical benchmarks which inflates model
+performance, and (3) high acoustic similarity between specific emotion
+classes (e.g., Sadness and Neutrality) due to narrow pitch ranges.
 
-Traditional audio-only baselines utilizing classical machine learning or even complex deep learning models are fundamentally constrained by the acoustic ambiguities of human speech. To overcome this, incorporating linguistic information provides a complementary dimension. However, without ground-truth transcriptions in real-world scenarios, leveraging Automatic Speech Recognition (ASR) is necessary. The direction of combining audio with ASR-derived text (ASR-assisted audio-linguistic fusion) is highly meaningful as it rigorously tests whether noisy, inferred language can still provide a statistically significant regularization effect on the acoustic signal.
+Traditional audio-only baselines utilizing classical machine learning or
+even complex deep learning models are fundamentally constrained by the
+acoustic ambiguities of human speech. To overcome this, incorporating
+linguistic information provides a complementary dimension. However, without
+ground-truth transcriptions in real-world scenarios, leveraging Automatic
+Speech Recognition (ASR) is necessary. The direction of combining audio
+with ASR-derived text (ASR-assisted audio-linguistic fusion) rigorously
+tests whether noisy, inferred language can still provide a statistically
+significant regularization effect on the acoustic signal.
 
 This thesis contributes to the field by:
 \begin{itemize}
@@ -92,8 +128,11 @@ To ensure academic rigor, we implement a highly controlled experimental protocol
     \item \textbf{Speaker-Independent Split}: The 147 speakers are partitioned such that no speaker in the training set appears in the validation or test sets. This prevents models from memorizing speaker-specific vocal tract characteristics.
     \item \textbf{Train/Validation/Test Allocation}: The split roughly follows an 80/10/10 ratio. 
     \item \textbf{No Leakage \& Checksum}: The allocation is computed via a greedy algorithm and saved to \texttt{split\_manifest.json}. A SHA-256 cryptographic checksum verifies the integrity of this split at runtime for every evaluated model.
-    \item \textbf{Validation Tuning}: Hyperparameter tuning is strictly isolated to the validation set. The test set is only queried once for final metric reporting.
-    \item \textbf{Seed Control}: Stochastic processes are controlled via fixed random seeds (e.g., 42, 43, 44, 45, 46) to ensure reproducibility.
+    \item \textbf{Validation Tuning}: Hyperparameter tuning is strictly isolated
+    to the validation set. The test set is only queried once for final reporting.
+    \item \textbf{Seed Control}: Stochastic processes in classical ML models are
+    controlled via 5 fixed random seeds (e.g., 42, 43, 44, 45, 46) to evaluate
+    stability. Deep learning architectures utilize deterministic singular runs.
 \end{itemize}
 
 \section{Baseline Models}
@@ -123,12 +162,19 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
 \end{itemize}
 
 \section{Evaluation Metrics}
-Because the dataset is mildly imbalanced, relying solely on standard Accuracy is misleading, as a model could achieve high accuracy by over-predicting the majority class. Therefore, we prioritize:
+Because the dataset is mildly imbalanced, relying solely on standard Accuracy
+is misleading. To establish a unified story, we choose \textbf{Weighted-F1 (wF1)}
+as the \textit{primary anchor metric} to balance precision and recall proportionally
+to class support, serving as the singular target for ranking and conclusions.
+
+To provide secondary context, we also measure:
 \begin{itemize}
-    \item \textbf{Macro-F1 (mF1) and Unweighted Average Recall (UAR)}: These metrics calculate performance per class independently and average them, ensuring minority classes contribute equally to the final score.
-    \item \textbf{Weighted-F1 (wF1)}: Used as the primary ranking metric to balance precision and recall proportionally to class support.
-    \item \textbf{Confusion Matrices}: To deeply analyze cross-class misclassifications.
-    \item \textbf{Inference Latency}: Measured end-to-end to evaluate deployment feasibility.
+    \item \textbf{Macro-F1 (mF1) and Accuracy}: Provides unweighted perspectives
+    and strict hit-rates, respectively.
+    \item \textbf{Confusion Matrices}: To deeply analyze cross-class
+    misclassifications.
+    \item \textbf{Inference Latency}: Measured end-to-end to evaluate
+    deployment feasibility.
 \end{itemize}
 
 \section{Reproducibility}
@@ -152,15 +198,15 @@ The primary benchmark results on the cryptographically secured test set are pres
 \textbf{Method} & \textbf{wF1} & \textbf{$\sigma$} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
 \multicolumn{5}{l}{\textit{Primary Models}} \\
-\quad \textbf{DFAT Late Fusion} & 0.7176 & 0.0000 & 0.7166 & 0.7178 \\
-\quad \textbf{ECAPA-TDNN} & 0.6137 & 0.0000 & 0.6131 & 0.6098 \\
+\quad \textbf{DFAT Late Fusion} & 0.7176 & — & 0.7166 & 0.7178 \\
+\quad \textbf{ECAPA-TDNN} & 0.6137 & — & 0.6131 & 0.6098 \\
 \quad \textbf{MFCC+RandomForest} & 0.3651 & 0.0094 & 0.3513 & 0.3939 \\
 \midrule
 \multicolumn{5}{l}{\textit{Secondary Baselines}} \\
-\quad WavLM+LogReg & 0.4656 & 0.0000 & 0.4574 & 0.4640 \\
+\quad WavLM+LogReg & 0.4656 & — & 0.4574 & 0.4640 \\
 \quad WavLM+SVM & 0.4509 & 0.0000 & 0.4506 & 0.4527 \\
 \quad MFCC+XGBoost & 0.3946 & 0.0103 & 0.3878 & 0.4061 \\
-\quad MFCC+SVM & 0.3662 & 0.0000 & 0.3590 & 0.3674 \\
+\quad MFCC+SVM & 0.3662 & — & 0.3590 & 0.3674 \\
 \bottomrule
 \end{tabular}
 %% END_BENCHMARK_TABLE
