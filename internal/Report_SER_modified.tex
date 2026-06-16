@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. Four additional secondary baselines are included for comprehensive comparison. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by cryptographic checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
+This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by cryptographic checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
 \end{abstract}
 
 \tableofcontents
@@ -92,7 +92,7 @@ We use a strictly enforced speaker-independent split: approx. 80\% Train, 10\% V
 
 \chapter{Methodology}
 
-We structure our evaluation around three primary models representing distinct paradigms, supplemented by four secondary baselines.
+We structure our evaluation around three primary models representing distinct paradigms.
 
 \section{MFCC + RandomForest (Classical Baseline)}
 We extract 40-dimensional MFCC vectors from each audio sample, mean-pool across time, and train a RandomForest classifier with 300 estimators. For this and all classical ML baselines, the Train and Validation sets are combined for training (no hyperparameter search is conducted on validation for these models). This method serves as our lightweight, interpretable baseline.
@@ -109,10 +109,9 @@ Our proposed Dual-stream Feature Aggregation system (DFAT) is an \emph{ASR-assis
 
 \textbf{Stream 2 --- TEFE (Textual Emotion Feature Extraction)}: Whisper-small~\cite{whisper} transcribes audio to Vietnamese text, which is then word-segmented using Underthesea and encoded by PhoBERT-base-v2 to produce 768-d linguistic embeddings. We emphasize that these are \emph{not} independent text features but rather linguistic representations inferred from the same audio signal via ASR.
 
-\textbf{Fusion Options}: We explore both \emph{Early Fusion} (Concatenation of SEFE + TEFE) and \emph{Late Fusion} (Weighted probability combination of stream-specific classifiers).
+\textbf{Fusion Strategy}: The embeddings are combined via an \emph{early fusion of embeddings} (concatenated to a 1536-d vector), followed by a \emph{late ensembling of three classifier families} (Logistic Regression, Random Forest, XGBoost) whose predicted probabilities are ensemble-weighted.
 
-\section{Secondary Baselines}
-For comprehensive comparison, we also evaluate: MFCC+SVM (RBF, $C=10$), MFCC+XGBoost (300 trees, $\text{max\_depth}=8$), WavLM+LogReg, and WavLM+SVM (RBF, $C=5$).
+
 
 \chapter{Experimental Protocol}
 
