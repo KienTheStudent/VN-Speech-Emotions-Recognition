@@ -9,10 +9,17 @@ from pathlib import Path
 
 # Import generators from sync_results
 from sync_results import (
-    load_json, generate_md_benchmark, generate_md_ablation,
-    generate_tex_benchmark, generate_tex_ablation, update_between_markers,
-    BENCHMARK_PATH, ABLATION_PATH, ROOT
+    load_json,
+    generate_md_benchmark,
+    generate_md_ablation,
+    generate_tex_benchmark,
+    generate_tex_ablation,
+    update_between_markers,
+    BENCHMARK_PATH,
+    ABLATION_PATH,
+    ROOT,
 )
+
 
 def check_file(filepath, bench_data, ablation_data, is_latex=False):
     if not filepath.exists():
@@ -47,7 +54,7 @@ def check_file(filepath, bench_data, ablation_data, is_latex=False):
         print("The documentation is out of sync with the JSON source of truth.")
         print("Please run `python sync_results.py` to fix this.")
         return False
-        
+
     print(f"✓ {filepath.name} is in sync.")
     return True
 
@@ -65,20 +72,33 @@ def main():
         sys.exit(1)
 
     all_good = True
-    all_good &= check_file(ROOT / "README.md", bench_data, ablation_data, is_latex=False)
-    all_good &= check_file(ROOT / "insight.md", bench_data, ablation_data, is_latex=False)
-    all_good &= check_file(ROOT / "Report_SER.tex", bench_data, ablation_data, is_latex=True)
+    all_good &= check_file(
+        ROOT / "README.md", bench_data, ablation_data, is_latex=False
+    )
+    all_good &= check_file(
+        ROOT / "insight.md", bench_data, ablation_data, is_latex=False
+    )
+    all_good &= check_file(
+        ROOT / "Report_SER.tex", bench_data, ablation_data, is_latex=True
+    )
 
     # Validate SER.ipynb
-    nb_path = ROOT / "SER.ipynb"
+    nb_path = ROOT / "internal" / "SER.ipynb"
     nb_content_before = nb_path.read_text(encoding="utf-8") if nb_path.exists() else ""
     import subprocess
+
     try:
-        subprocess.run(["python", str(ROOT / "sync_notebook.py")], check=True, capture_output=True)
-        nb_content_after = nb_path.read_text(encoding="utf-8") if nb_path.exists() else ""
+        subprocess.run(
+            ["python", str(ROOT / "internal" / "sync_notebook.py")], check=True, capture_output=True
+        )
+        nb_content_after = (
+            nb_path.read_text(encoding="utf-8") if nb_path.exists() else ""
+        )
         if nb_content_before != nb_content_after:
             print(f"❌ MISMATCH FOUND IN SER.ipynb!")
-            print("The notebook is out of sync. Please run `python sync_results.py` to fix this.")
+            print(
+                "The notebook is out of sync. Please run `python sync_results.py` to fix this."
+            )
             if nb_path.exists() and nb_content_before:
                 nb_path.write_text(nb_content_before, encoding="utf-8")
             all_good = False
@@ -90,8 +110,9 @@ def main():
 
     if not all_good:
         sys.exit(1)
-        
+
     print("\n✓ CI PASS: All documentation matches the JSON data.")
+
 
 if __name__ == "__main__":
     main()

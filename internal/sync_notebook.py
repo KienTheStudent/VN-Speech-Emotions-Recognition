@@ -302,7 +302,13 @@ cells = [
         "outputs": [],
         "source": split_lines(cell_ecapa)[:-1],
     },
-    {"cell_type": "markdown", "metadata": {}, "source": split_lines("## Results Summary\n\nBelow are the final evaluation outputs for our baseline and proposed models.")[:-1]},
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": split_lines(
+            "## Results Summary\n\nBelow are the final evaluation outputs for our baseline and proposed models."
+        )[:-1],
+    },
     {
         "cell_type": "code",
         "execution_count": None,

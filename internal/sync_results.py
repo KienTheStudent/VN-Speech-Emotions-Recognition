@@ -16,7 +16,7 @@ import json
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 BENCHMARK_PATH = ROOT / "benchmark_results_gpu.json"
 ABLATION_PATH = ROOT / "DFAT_Hybrid_Fusion" / "ablation_results.json"
 
@@ -163,7 +163,8 @@ def generate_tex_benchmark(data):
             current_cat = "secondary"
 
         wf1 = fmt(r.get("f1_weighted_mean", 0))
-        std = fmt(r.get("f1_weighted_std", 0))
+        raw_std = r.get("f1_weighted_std", 0)
+        std = "—" if float(raw_std) == 0.0 else fmt(raw_std)
         mf1 = fmt(r.get("f1_macro_mean", 0))
         acc = fmt(r.get("accuracy_mean", 0))
 
@@ -276,7 +277,7 @@ def main():
     print("\nSynchronizing SER.ipynb...")
     import subprocess
     try:
-        subprocess.run(["python", str(ROOT / "sync_notebook.py")], check=True)
+        subprocess.run(["python", str(ROOT / "internal" / "sync_notebook.py")], check=True)
     except Exception as e:
         print(f"  ⚠ Failed to sync notebook: {e}")
 
