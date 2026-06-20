@@ -3,11 +3,11 @@
 
 Ablation configurations:
   1. Acoustic-only   : WavLM embeddings (768-d) + classifiers
-  2. Linguistic-only : PhoBERT embeddings via Whisper-small ASR (768-d) + classifiers
+  2. Linguistic-only : PhoBERT embeddings via primary ASR (768-d) + classifiers
   3. Early Fusion    : Concat WavLM + PhoBERT (1536-d) + classifiers
   4. Late Fusion     : Weighted ensemble of acoustic-only and linguistic-only predictions
-  5. ASR sensitivity : Repeat linguistic-only and early/late fusion using Whisper-tiny
-  6. Stress test     : Synthetic word-level perturbation (10%, 20%, 30%) on Whisper-small text
+  5. ASR sensitivity : Repeat linguistic-only and early/late fusion using an inferior ASR model (Whisper-small)
+  6. Stress test     : Synthetic word-level perturbation (10%, 20%, 30%) on primary ASR text
 
 All ablations use the same Train/Val/Test split from split_manifest.json.
 Classifiers: LogReg, RandomForest, XGBoost (Optuna-tuned on Val).
@@ -18,6 +18,7 @@ import random
 import re
 import time
 import warnings
+import argparse
 from pathlib import Path
 
 import librosa
@@ -50,8 +51,10 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 from underthesea import word_tokenize as vi_word_tokenize
 
 MANIFEST_PATH = Path(__file__).parent.parent / "split_manifest.json"
-TRANSCRIPT_CACHE_FILE = Path(__file__).parent / "transcript_cache.json"
-TRANSCRIPT_CACHE_TINY_FILE = Path(__file__).parent / "transcript_cache_tiny.json"
+
+def get_transcript_cache_file(asr_model):
+    safe_name = asr_model.replace("/", "_")
+    return Path(__file__).parent / f"transcript_cache_{safe_name}.json"
 
 SEEDS = [42, 123, 456, 789, 2026]
 
@@ -289,8 +292,13 @@ def run_classifiers(x_train, y_train, x_val, y_val, x_test, y_test,
 # ==================== MAIN ====================
 
 def main():
+    parser = argparse.ArgumentParser(description="DFAT Ablation Study")
+    parser.add_argument("--asr_model", type=str, default="vinai/PhoWhisper-large", help="Primary ASR model to use (default: vinai/PhoWhisper-large)")
+    args = parser.parse_args()
+
     print("=" * 60)
-    print("DFAT ABLATION STUDY — Leak-Free Protocol")
+    print(f"DFAT ABLATION STUDY — Leak-Free Protocol")
+    print(f"Primary ASR Model: {args.asr_model}")
     print("=" * 60)
 
     # 1. Load data
@@ -325,32 +333,32 @@ def main():
     wavlm_proc = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
     wavlm_model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
 
-    print("Loading Whisper-small...")
-    whisper_proc = WhisperProcessor.from_pretrained("openai/whisper-small")
-    whisper_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small").to(device).eval()
+    print(f"Loading Primary ASR [{args.asr_model}]...")
+    whisper_proc = WhisperProcessor.from_pretrained(args.asr_model)
+    whisper_model = WhisperForConditionalGeneration.from_pretrained(args.asr_model).to(device).eval()
 
     print("Loading PhoBERT...")
     phobert_tok = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
     phobert_model = AutoModel.from_pretrained("vinai/phobert-base-v2").to(device).eval()
 
-    # 3. Extract features using Whisper-small
-    cache_small = load_cache(TRANSCRIPT_CACHE_FILE)
+    # 3. Extract features using Primary ASR
+    cache_primary = load_cache(get_transcript_cache_file(args.asr_model))
 
-    print("\nExtracting features (Whisper-small)...")
+    print(f"\nExtracting features ({args.asr_model})...")
     train_ac, train_ling, train_y, train_vp = extract_all_features(
         train_paths, train_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
-        device, "Train", cache_small)
+        device, "Train", cache_primary)
     val_ac, val_ling, val_y, val_vp = extract_all_features(
         val_paths, val_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
-        device, "Val", cache_small)
+        device, "Val", cache_primary)
     test_ac, test_ling, test_y, test_vp = extract_all_features(
         test_paths, test_labels, wavlm_model, wavlm_proc,
         whisper_model, whisper_proc, phobert_model, phobert_tok,
-        device, "Test", cache_small)
+        device, "Test", cache_primary)
 
-    save_cache(cache_small, TRANSCRIPT_CACHE_FILE)
+    save_cache(cache_primary, get_transcript_cache_file(args.asr_model))
 
     # Build acoustic path dictionaries for exact alignment
     ac_dict_train = {p: ac for p, ac in zip(train_vp, train_ac)}
@@ -379,11 +387,11 @@ def main():
         label_names, "Acoustic-only (WavLM)"))
 
     print("\n" + "=" * 60)
-    print("ABLATION 2: Linguistic-only (PhoBERT via Whisper-small)")
+    print(f"ABLATION 2: Linguistic-only (PhoBERT via {args.asr_model})")
     print("=" * 60)
     ablation_results.append(run_classifiers(
         train_ling, train_y, val_ling, val_y, test_ling, test_y,
-        label_names, "Linguistic-only (Whisper-small + PhoBERT)"))
+        label_names, f"Linguistic-only ({args.asr_model} + PhoBERT)"))
 
     print("\n" + "=" * 60)
     print("ABLATION 3: Early Fusion (Concat)")
@@ -424,9 +432,9 @@ def main():
             valid_ac_list.append(ac_dict[key])
         return np.array(valid_ac_list), np.array(feat_list), np.array(lbl_list)
 
-    train_ac_ns, train_ling_ns, train_y_ns = get_noseg_ling(train_paths, train_labels, cache_small, ac_dict_train)
-    val_ac_ns, val_ling_ns, val_y_ns = get_noseg_ling(val_paths, val_labels, cache_small, ac_dict_val)
-    test_ac_ns, test_ling_ns, test_y_ns = get_noseg_ling(test_paths, test_labels, cache_small, ac_dict_test)
+    train_ac_ns, train_ling_ns, train_y_ns = get_noseg_ling(train_paths, train_labels, cache_primary, ac_dict_train)
+    val_ac_ns, val_ling_ns, val_y_ns = get_noseg_ling(val_paths, val_labels, cache_primary, ac_dict_val)
+    test_ac_ns, test_ling_ns, test_y_ns = get_noseg_ling(test_paths, test_labels, cache_primary, ac_dict_test)
 
     train_fused_ns = np.concatenate([train_ac_ns, train_ling_ns], axis=1)
     val_fused_ns = np.concatenate([val_ac_ns, val_ling_ns], axis=1)
@@ -491,66 +499,67 @@ def main():
     print(f"    Late Fusion: wF1={late_wf1:.4f}  (w_ac={w_a:.3f}, w_lg={w_l:.3f})")
 
     # ------------------------------------------------------------------
-    # 5. ASR Sensitivity: Whisper-tiny
+    # 5. ASR Sensitivity: Whisper-small (inferior comparison)
     # ------------------------------------------------------------------
     print("\n" + "=" * 60)
-    print("ABLATION 5: ASR Sensitivity — Whisper-tiny")
+    print("ABLATION 5: ASR Sensitivity — Whisper-small")
     print("=" * 60)
 
-    # Unload Whisper-small, load Whisper-tiny
+    # Unload Primary, load Whisper-small
     del whisper_model
     torch.cuda.empty_cache()
-    print("Loading Whisper-tiny...")
-    whisper_tiny_proc = WhisperProcessor.from_pretrained("openai/whisper-tiny")
-    whisper_tiny_model = WhisperForConditionalGeneration.from_pretrained(
-        "openai/whisper-tiny").to(device).eval()
+    print("Loading Whisper-small for sensitivity test...")
+    inferior_asr = "openai/whisper-small"
+    whisper_inf_proc = WhisperProcessor.from_pretrained(inferior_asr)
+    whisper_inf_model = WhisperForConditionalGeneration.from_pretrained(
+        inferior_asr).to(device).eval()
 
-    cache_tiny = load_cache(TRANSCRIPT_CACHE_TINY_FILE)
+    cache_inf = load_cache(get_transcript_cache_file(inferior_asr))
 
-    print("Extracting features (Whisper-tiny)...")
-    _, train_ling_tiny, train_y_tiny, train_vp_tiny = extract_all_features(
+    print(f"Extracting features ({inferior_asr})...")
+    _, train_ling_inf, train_y_inf, train_vp_inf = extract_all_features(
         train_paths, train_labels, wavlm_model, wavlm_proc,
-        whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
-        device, "Train-tiny", cache_tiny)
-    _, val_ling_tiny, val_y_tiny, val_vp_tiny = extract_all_features(
+        whisper_inf_model, whisper_inf_proc, phobert_model, phobert_tok,
+        device, "Train-inf", cache_inf)
+    _, val_ling_inf, val_y_inf, val_vp_inf = extract_all_features(
         val_paths, val_labels, wavlm_model, wavlm_proc,
-        whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
-        device, "Val-tiny", cache_tiny)
-    _, test_ling_tiny, test_y_tiny, test_vp_tiny = extract_all_features(
+        whisper_inf_model, whisper_inf_proc, phobert_model, phobert_tok,
+        device, "Val-inf", cache_inf)
+    _, test_ling_inf, test_y_inf, test_vp_inf = extract_all_features(
         test_paths, test_labels, wavlm_model, wavlm_proc,
-        whisper_tiny_model, whisper_tiny_proc, phobert_model, phobert_tok,
-        device, "Test-tiny", cache_tiny)
+        whisper_inf_model, whisper_inf_proc, phobert_model, phobert_tok,
+        device, "Test-inf", cache_inf)
 
-    save_cache(cache_tiny, TRANSCRIPT_CACHE_TINY_FILE)
+    save_cache(cache_inf, get_transcript_cache_file(inferior_asr))
 
-    # Linguistic-only with Whisper-tiny
+    # Linguistic-only with inferior model
     ablation_results.append(run_classifiers(
-        train_ling_tiny, train_y_tiny, val_ling_tiny, val_y_tiny,
-        test_ling_tiny, test_y_tiny,
-        label_names, "Linguistic-only (Whisper-tiny + PhoBERT)"))
+        train_ling_inf, train_y_inf, val_ling_inf, val_y_inf,
+        test_ling_inf, test_y_inf,
+        label_names, f"Linguistic-only ({inferior_asr} + PhoBERT)"))
 
-    # Early fusion with Whisper-tiny using explicit path alignment
-    train_ac_tiny = np.array([ac_dict_train[p] for p in train_vp_tiny])
-    val_ac_tiny = np.array([ac_dict_val[p] for p in val_vp_tiny])
-    test_ac_tiny = np.array([ac_dict_test[p] for p in test_vp_tiny])
+    # Early fusion with inferior model using explicit path alignment
+    train_ac_inf = np.array([ac_dict_train[p] for p in train_vp_inf])
+    val_ac_inf = np.array([ac_dict_val[p] for p in val_vp_inf])
+    test_ac_inf = np.array([ac_dict_test[p] for p in test_vp_inf])
 
-    train_fused_tiny = np.concatenate([train_ac_tiny, train_ling_tiny], axis=1)
-    val_fused_tiny = np.concatenate([val_ac_tiny, val_ling_tiny], axis=1)
-    test_fused_tiny = np.concatenate([test_ac_tiny, test_ling_tiny], axis=1)
+    train_fused_inf = np.concatenate([train_ac_inf, train_ling_inf], axis=1)
+    val_fused_inf = np.concatenate([val_ac_inf, val_ling_inf], axis=1)
+    test_fused_inf = np.concatenate([test_ac_inf, test_ling_inf], axis=1)
 
     ablation_results.append(run_classifiers(
-        train_fused_tiny, train_y_tiny, val_fused_tiny, val_y_tiny,
-        test_fused_tiny, test_y_tiny,
-        label_names, "Early Fusion (Whisper-tiny)"))
+        train_fused_inf, train_y_inf, val_fused_inf, val_y_inf,
+        test_fused_inf, test_y_inf,
+        label_names, f"Early Fusion ({inferior_asr})"))
 
-    del whisper_tiny_model
+    del whisper_inf_model
     torch.cuda.empty_cache()
 
     # ------------------------------------------------------------------
     # 6. Stress test: synthetic word perturbation
     # ------------------------------------------------------------------
     print("\n" + "=" * 60)
-    print("STRESS TEST: Synthetic word-level perturbation on Whisper-small text")
+    print("STRESS TEST: Synthetic word-level perturbation on Primary ASR text")
     print("=" * 60)
 
     for error_rate in [0.10, 0.20, 0.30]:
@@ -560,9 +569,9 @@ def main():
         # Re-extract PhoBERT features with perturbed text
         perturbed_sets = {}
         for name, paths, labels, cache_ref, ac_dict in [
-            ("train", train_paths, train_labels, cache_small, ac_dict_train),
-            ("val", val_paths, val_labels, cache_small, ac_dict_val),
-            ("test", test_paths, test_labels, cache_small, ac_dict_test),
+            ("train", train_paths, train_labels, cache_primary, ac_dict_train),
+            ("val", val_paths, val_labels, cache_primary, ac_dict_val),
+            ("test", test_paths, test_labels, cache_primary, ac_dict_test),
         ]:
             feat_list, lbl_list, valid_ac_list = [], [], []
             for p, y in zip(paths, labels):
