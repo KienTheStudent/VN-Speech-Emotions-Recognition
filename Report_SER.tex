@@ -1,4 +1,6 @@
 \documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
@@ -34,7 +36,7 @@ on the ViSEC dataset. We evaluate three primary classification pipelines
 representing distinct paradigms: handcrafted features with classical ML
 (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN),
 and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM
-acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR.
+acoustic embeddings with PhoBERT linguistic embeddings derived via PhoWhisper ASR.
 
 All experiments follow a strict leak-free protocol with a fixed
 speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
@@ -264,10 +266,10 @@ Understanding how raw audio is projected into a discriminative latent space is c
 The proposed DFAT pipeline relies on three distinct representation streams:
 \begin{itemize}
     \item \textbf{Acoustic Stream (WavLM)}: The model sees deep, self-supervised acoustic context. It contributes representations of prosody, physical energy, and voice quality without requiring explicit frequency binning.
-    \item \textbf{ASR Stream (Whisper)}: Acts as an acoustic-to-linguistic bridge. It forces the raw waveform through an explicit phonetic bottleneck, discarding timbre to infer discrete words.
+    \item \textbf{ASR Stream (PhoWhisper)}: Acts as an acoustic-to-linguistic bridge. It forces the raw waveform through an explicit phonetic bottleneck, discarding timbre to infer discrete words.
     \item \textbf{Linguistic Stream (PhoBERT)}: The model sees a sequence of tokens. It contributes semantic constraints—mapping the noisy transcript into a geometric space where lexical meanings (e.g., negative vs. positive words) are clustered.
 \end{itemize}
-Crucially, DFAT is a \textit{pseudo-multimodal} system. Because transcripts are generated dynamically via ASR rather than provided as ground-truth, the quality of the linguistic representation is strictly upper-bounded by Whisper's transcription accuracy.
+Crucially, DFAT is a \textit{pseudo-multimodal} system. Because transcripts are generated dynamically via ASR rather than provided as ground-truth, the quality of the linguistic representation is strictly upper-bounded by PhoWhisper's transcription accuracy.
 
 \section{Baseline Models}
 We evaluate baselines categorized into two distinct paradigms. Figure~\ref{fig:arch_mfcc_rf} illustrates the classical pipeline.
@@ -303,10 +305,10 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
 
 \begin{itemize}
     \item \textbf{Audio Branch}: Raw waveforms are processed by a frozen \texttt{WavLM-base-plus} model, producing a 768-d acoustic embedding.
-    \item \textbf{ASR Transcript Extraction}: The same waveform is passed through \texttt{Whisper-small} to generate a Vietnamese text transcript.
+    \item \textbf{ASR Transcript Extraction}: The same waveform is passed through \texttt{PhoWhisper-large} to generate a Vietnamese text transcript.
     \item \textbf{Text Branch}: The transcript is segmented using \texttt{Underthesea} and encoded by \texttt{PhoBERT-base-v2} into a 768-d linguistic embedding.
     \item \textbf{Fusion Strategy}: The embeddings are combined via an \textit{early fusion of embeddings} (concatenated to a 1536-d vector), followed by a \textit{late ensembling of three classifier families} (Logistic Regression, Random Forest, XGBoost) whose predicted probabilities are ensemble-weighted.
-    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle Whisper transcription errors by adjusting stream and classifier weights dynamically.
+    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle PhoWhisper transcription errors by adjusting stream and classifier weights dynamically.
 \end{itemize}
 
 \begin{figure}[h]
@@ -338,7 +340,7 @@ Table~\ref{tab:design_choices} summarizes the key hyperparameters across all thr
 \midrule
 \multirow{3}{*}{DFAT Fusion}
 & \texttt{fusion=1536-d} & Concatenated embedding size. & Natural output of WavLM-base (768-d) + PhoBERT-base (768-d); avoids lossy down-projection. \\
-& \texttt{Whisper-small} & ASR transcript quality. & Best quality-latency inflection point; \texttt{tiny} degrades text quality catastrophically (ablation: $-0.14$ wF1). \\
+& \texttt{PhoWhisper-large} & ASR transcript quality. & Best quality for Vietnamese text; the large parameter count (~1.5B) is justified because an inferior model degrades text quality catastrophically. \\
 & Ensemble (LR/RF/XGB) & Classifier diversity. & Weighted late ensemble reduces sensitivity to any single classifier's bias on noisy fusion features. \\
 \bottomrule
 \end{tabular}
@@ -483,14 +485,14 @@ We categorize the 149 total off-diagonal errors of the DFAT model into three dis
 \subsection{Failure Mode 1: Acoustic Ambiguity}
 This category accounts for errors where the acoustic profiles of two emotions overlap significantly.
 \begin{itemize}
-    \item \textbf{Happy $\rightarrow$ Neutral (31 cases, 25.2\% of Happy support)}: In Vietnamese, conversational ``Happy'' speech often lacks the dramatic pitch elevation seen in acted English datasets. Without strong lexical markers of joy, Whisper transcripts are mundane (e.g., ``vang a''), causing both the acoustic and linguistic streams to default to ``Neutral''.
+    \item \textbf{Happy $\rightarrow$ Neutral (31 cases, 25.2\% of Happy support)}: In Vietnamese, conversational ``Happy'' speech often lacks the dramatic pitch elevation seen in acted English datasets. Without strong lexical markers of joy, PhoWhisper transcripts are mundane (e.g., ``vang a''), causing both the acoustic and linguistic streams to default to ``Neutral''.
     \item \textbf{Sad $\rightarrow$ Neutral (20 cases, 18.5\% of Sad support)}: Both states share low acoustic energy and narrow pitch ranges. When a speaker sighs or whispers, the ASR model struggles to generate meaningful text, depriving the text branch of signal.
 \end{itemize}
 
 \subsection{Failure Mode 2: ASR Transcription Noise}
 This category captures errors introduced by the ASR pipeline itself.
 \begin{itemize}
-    \item \textbf{Angry $\rightarrow$ Neutral (17 cases)}: Rapid, loud utterances frequently cause Whisper to hallucinate incorrect text or stutter, pushing the PhoBERT embedding out of distribution.
+    \item \textbf{Angry $\rightarrow$ Neutral (17 cases)}: Rapid, loud utterances frequently cause PhoWhisper to hallucinate incorrect text or stutter, pushing the PhoBERT embedding out of distribution.
     \item \textbf{Happy $\rightarrow$ Angry (16 cases)}: High-energy ``Happy'' speech can be acoustically similar to ``Angry'' speech. When ASR produces fragmented transcripts, the linguistic disambiguation fails.
 \end{itemize}
 
@@ -518,8 +520,8 @@ Neutral & Neutral & ``Dạ vâng, để tôi xem lại.'' & \textbf{Success}: Fl
 \multicolumn{4}{l}{\textbf{Incorrect Predictions (Failure Modes)}} \\
 \midrule
 Happy & Neutral & ``Vâng ạ, cũng được.'' & \textbf{Acoustic Ambiguity}: The speaker expressed quiet contentment rather than high-arousal joy. The mundane transcript caused the semantic model to default to Neutral. \\
-Angry & Neutral & ``[mumbling]... đi ra...'' & \textbf{ASR Noise}: Rapid, furious speech caused Whisper to hallucinate or drop phonemes. Without semantic reinforcement, the acoustic stream was outvoted. \\
-Sad & Neutral & \textit{(Empty transcript)} & \textbf{Acoustic Ambiguity / ASR Noise}: The utterance was mostly a heavy sigh. Whisper failed to generate any text, depriving the text branch of signal. \\
+Angry & Neutral & ``[mumbling]... đi ra...'' & \textbf{ASR Noise}: Rapid, furious speech caused PhoWhisper to hallucinate or drop phonemes. Without semantic reinforcement, the acoustic stream was outvoted. \\
+Sad & Neutral & \textit{(Empty transcript)} & \textbf{Acoustic Ambiguity / ASR Noise}: The utterance was mostly a heavy sigh. PhoWhisper failed to generate any text, depriving the text branch of signal. \\
 \bottomrule
 \end{tabular}
 \caption{Qualitative case studies demonstrating DFAT model behavior.}
@@ -553,7 +555,7 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 \label{tab:ablation}
 \end{table}
 
-\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, suggesting that ASR text alone is insufficient to determine emotion. Simple uncalibrated fusion (Early Fusion at 0.3995 or stream-level Late Fusion at 0.3408) can actually underperform the acoustic-only baseline (0.4329), indicating that the linguistic stream acts best as a supplementary signal, not an independent equal. Downgrading Whisper-small to Whisper-tiny drops linguistic performance precipitously, confirming that fusion success is highly dependent on ASR transcript quality.
+\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, suggesting that ASR text alone is insufficient to determine emotion. Simple uncalibrated fusion (Early Fusion) can actually underperform the acoustic-only baseline, indicating that the linguistic stream acts best as a supplementary signal, not an independent equal. Downgrading PhoWhisper-large to an inferior baseline like Whisper-small drops linguistic performance precipitously, confirming that fusion success is highly dependent on ASR transcript quality.
 
 Figure~\ref{fig:ablation_heatmap} provides a visual summary of all ablation configurations.
 
@@ -592,7 +594,7 @@ We proactively identify the following threats to the validity of our conclusions
 The speaker-independent split guarantees no identity leakage, but it introduces a subtle \textit{distribution shift}: test speakers may exhibit idiosyncratic prosodic patterns absent from training. With only 147 speakers split across three partitions, the test set contains only 47 speakers. If several test speakers have atypical vocal characteristics, per-class recall can degrade without reflecting a true model weakness.
 
 \section{ASR Noise Propagation}
-DFAT's linguistic stream is strictly upper-bounded by Whisper's transcription accuracy. Under extreme emotional prosody (shouting, whispering, crying), Whisper's word error rate increases substantially. This creates a cascading failure: poor transcripts produce out-of-distribution PhoBERT embeddings, which can actively harm the fusion rather than help it. Our ablation confirms this risk: the \texttt{Whisper-tiny} variant degrades fusion performance below the acoustic-only baseline.
+DFAT's linguistic stream is strictly upper-bounded by PhoWhisper's transcription accuracy. Under extreme emotional prosody (shouting, whispering, crying), PhoWhisper's word error rate increases substantially. This creates a cascading failure: poor transcripts produce out-of-distribution PhoBERT embeddings, which can actively harm the fusion rather than help it. Our ablation confirms this risk: the inferior \texttt{Whisper-small} variant degrades fusion performance below the acoustic-only baseline. Even though PhoWhisper is fine-tuned for Vietnamese, it remains vulnerable to severe acoustic noise.
 
 \section{Seed Sensitivity and Benchmark Fairness}
 The MFCC+RF pipeline was evaluated across 5 seeds ($\sigma=0.0094$), demonstrating measurable initialization sensitivity. However, ECAPA-TDNN and DFAT were each evaluated with a single seed due to computational constraints. This means their reported metrics lack variance estimates, and the true performance range of these deep models remains unknown. Future work should prioritize multi-seed evaluation for all pipelines.
@@ -612,14 +614,14 @@ This thesis systematically addressed Vietnamese SER through the construction of 
 \section{Limitations}
 While the proposed approach demonstrates strong empirical results, it exhibits several limitations:
 \begin{itemize}
-    \item \textbf{Computational Overhead}: The reliance on multiple large pre-trained models (WavLM, Whisper, PhoBERT) incurs significant latency, rendering it unsuitable for resource-constrained edge devices.
+    \item \textbf{Computational Overhead}: The reliance on multiple large pre-trained models (WavLM, PhoWhisper-large at ~1.5B parameters, PhoBERT) incurs significant latency, rendering it unsuitable for resource-constrained edge devices.
     \item \textbf{ASR Dependency}: The system's performance is strictly bounded by the accuracy of the underlying ASR model, which frequently struggles under extreme emotional prosody.
 \end{itemize}
 
 \section{Future Work}
 To advance this research, future work should focus on:
 \begin{itemize}
-    \item \textbf{End-to-End Multi-Task Learning}: Replacing the heavy sequential Whisper-PhoBERT pipeline with a single multi-task model that jointly predicts transcripts and emotion to drastically reduce latency.
+    \item \textbf{End-to-End Multi-Task Learning}: Replacing the heavy sequential PhoWhisper-PhoBERT pipeline with a single multi-task model that jointly predicts transcripts and emotion to drastically reduce latency.
     \item \textbf{Dataset Expansion}: Expanding the ViSEC dataset with spontaneous, unscripted conversational data to mitigate the artificial distributions found in acted corpora.
     \item \textbf{Cross-Corpus Generalization}: Evaluating the DFAT pipeline on out-of-domain Vietnamese datasets to further validate its resilience to diverse recording environments.
 \end{itemize}
