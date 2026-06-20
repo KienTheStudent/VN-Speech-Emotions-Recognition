@@ -53,6 +53,9 @@ unconditionally superior to acoustic-only baselines.
 \addcontentsline{toc}{chapter}{Acknowledgements}
 I would like to express my sincere gratitude to my advisor and professors for their invaluable guidance and academic support. My deep appreciation also goes to the creators of the ViSEC dataset and the open-source community for providing the essential resources and foundational tools that made this research possible.
 
+\vspace{1.5cm}
+\begingroup
+\let\clearpage\relax
 \chapter*{List of Abbreviations}
 \addcontentsline{toc}{chapter}{List of Abbreviations}
 \begin{tabbing}
@@ -68,12 +71,19 @@ I would like to express my sincere gratitude to my advisor and professors for th
 \textbf{WA} \> Weighted Accuracy \\
 \textbf{WavLM} \> Large-Scale Self-Supervised Pre-Training for Full Stack Speech Processing \\
 \end{tabbing}
+\endgroup
 
 \tableofcontents
+
+\begingroup
+\let\clearpage\relax
+\vspace{1.5cm}
 \listoffigures
 \addcontentsline{toc}{chapter}{List of Figures}
+\vspace{1.5cm}
 \listoftables
 \addcontentsline{toc}{chapter}{List of Tables}
+\endgroup
 
 \chapter{Introduction}
 \section{Problem Statement}
@@ -108,18 +118,18 @@ This thesis contributes to the field by:
     \item Providing deep error analysis regarding ASR noise propagation and specific emotional class confusions.
 \end{itemize}
 
-\chapter{Related Work}
-\section{Classical Approaches}
+\section{Related Work}
+\subsection{Classical Approaches}
 Traditional SER heavily relies on handcrafted acoustic features, notably Mel-Frequency Cepstral Coefficients (MFCCs), combined with classical machine learning classifiers such as Support Vector Machines or Random Forests. While computationally efficient, these approaches often struggle to generalize across diverse speakers and environmental conditions.
 
-\section{Deep Audio Models}
+\subsection{Deep Audio Models}
 The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations.
 
-\section{Audio-Linguistic Fusion}
+\subsection{Audio-Linguistic Fusion}
 Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition to infer text from audio, followed by semantic embedding models like PhoBERT, merging both streams to achieve superior classification performance.
 
-\chapter{Objectives}
-\section{Research Questions}
+\section{Objectives}
+\subsection{Research Questions}
 This thesis seeks to answer the following research questions:
 \begin{itemize}
     \item \textbf{RQ1}: Does the proposed DFAT audio-linguistic fusion method outperform baseline models under a strict speaker-independent protocol?
@@ -127,7 +137,7 @@ This thesis seeks to answer the following research questions:
     \item \textbf{RQ3}: What is the trade-off between recognition accuracy and inference latency when moving from acoustic-only to multi-stream models?
 \end{itemize}
 
-\section{Specific Objectives}
+\subsection{Specific Objectives}
 To systematically address the challenges of Vietnamese SER, this thesis defines the following measurable objectives:
 \begin{itemize}
     \item \textbf{Objective 1}: Construct and validate a strict speaker-independent evaluation pipeline to eliminate identity leakage.
