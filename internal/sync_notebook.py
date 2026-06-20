@@ -355,53 +355,68 @@ if BENCHMARK_RESULTS_PATH.exists():
 """
 
 cell_demo = """# ==================== 5. LIVE INFERENCE DEMO ====================
-demo_audio = ROOT_DIR / "sample_visec.wav"
+import json
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+from pathlib import Path
+import IPython.display as ipd
+from IPython.display import display
 
-def try_predict_ecapa(audio_path: Path) -> Any | None:
-    script = ROOT_DIR / "ECAPA" / "predict_emotion.py"
-    model_dir = ROOT_DIR / "ECAPA" / "emotion_model"
-    if not script.exists():
-        print("ECAPA predict script not found.")
-        return None
-    rc, out, err = run_script(script, [str(audio_path), "--model_dir", str(model_dir)])
-    if rc != 0:
-        print("ECAPA script failed:")
-        print(err or out)
-        return None
-    parsed = extract_json_object(out)
-    print("ECAPA raw output:")
-    print(out)
-    return parsed if parsed is not None else out
+preds_path = ROOT_DIR / "per_sample_predictions.json"
+if preds_path.exists():
+    with open(preds_path, "r") as f:
+        preds = json.load(f)
+        
+    correct_cases = [p for p in preds if p["true_label"] == p["predicted_label"] and not p["failure_flags"]]
+    failed_cases = [p for p in preds if p["true_label"] != p["predicted_label"] and p["true_label"] != "neutral"]
 
-def try_predict_dfat(audio_path: Path) -> Any | None:
-    script = ROOT_DIR / "DFAT_Hybrid_Fusion" / "predict_dualstream.py"
-    model_dir = ROOT_DIR / "DFAT_Hybrid_Fusion" / "dualstream_model"
-    if not script.exists():
-        print("DFAT predict script not found.")
-        return None
-    rc, out, err = run_script(script, ["--audio_file", str(audio_path), "--model_dir", str(model_dir)])
-    if rc != 0:
-        print("DFAT script failed:")
-        print(err or out)
-        return None
-    parsed = extract_json_object(out)
-    print("DFAT raw output:")
-    print(out)
-    return parsed if parsed is not None else out
+    def plot_demo(sample_info, title=""):
+        print(f"\\n{'='*60}")
+        print(f"{title}")
+        print(f"Sample ID: {sample_info['sample_id']}")
+        print(f"True Emotion: {sample_info['true_label'].upper()}")
+        print(f"Predicted: {sample_info['predicted_label'].upper()} (Conf: {sample_info['confidence']:.2f})")
+        print(f"PhoWhisper Transcript: '{sample_info['transcript']}'")
+        if sample_info['failure_flags']:
+            print(f"Failure Flags: {sample_info['failure_flags']}")
+        print(f"{'='*60}\\n")
+        
+        # Determine the relative path to the sample from the dataset if possible.
+        # Since 'sample_id' might just be 'emotion_01.wav', we try to locate it.
+        # But we can also just rely on the fact that 'hustep-lab/ViSEC' is hosted remotely or cached.
+        # Let's try to load from huggingface dataset to get the local cache path if it doesn't exist locally.
+        try:
+            from datasets import load_dataset
+            ds = load_dataset("hustep-lab/ViSEC", split="train", trust_remote_code=True)
+            # Find the path that ends with this sample_id
+            df_ds = ds.to_pandas()
+            matched_path = df_ds[df_ds['path'].str.endswith(sample_info['sample_id'])]['path'].values[0]
+            y, sr = librosa.load(matched_path, sr=16000)
+            
+            fig, axes = plt.subplots(2, 1, figsize=(10, 6))
+            librosa.display.waveshow(y, sr=sr, ax=axes[0], color='#42A5F5')
+            axes[0].set_title("Waveform")
+            
+            S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, fmax=8000)
+            S_dB = librosa.power_to_db(S, ref=np.max)
+            img = librosa.display.specshow(S_dB, x_axis='time', y_axis='mel', sr=sr, fmax=8000, ax=axes[1], cmap='magma')
+            fig.colorbar(img, ax=axes[1], format='%+2.0f dB')
+            axes[1].set_title("Mel-Spectrogram")
+            
+            plt.tight_layout()
+            plt.show()
+            
+            display(ipd.Audio(y, rate=sr))
+        except Exception as e:
+            print(f"Could not load audio for visualization: {e}")
 
-if demo_audio.exists():
-    print(f"Sample audio: {demo_audio}")
-    import IPython.display as ipd
-    from IPython.display import display
-    display(ipd.Audio(str(demo_audio)))
-    
-    print("\\n--- Running ECAPA-TDNN Inference ---")
-    ecapa_pred = try_predict_ecapa(demo_audio)
-    
-    print("\\n--- Running DFAT Late Fusion Inference ---")
-    dfat_pred = try_predict_dfat(demo_audio)
+    if correct_cases:
+        plot_demo(correct_cases[0], "DEMO: SUCCESSFUL CLASSIFICATION")
+    if failed_cases:
+        plot_demo(failed_cases[0], "DEMO: FAILURE CASE (ASR NOISE OR ACOUSTIC AMBIGUITY)")
 else:
-    print("sample_visec.wav is missing; skip demo inference.")
+    print("per_sample_predictions.json not found. Run extract_inference_metadata.py first.")
 """
 
 def split_lines(text):
