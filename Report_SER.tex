@@ -36,10 +36,10 @@ acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR.
 
 All experiments follow a strict leak-free protocol with a fixed
 speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
-Test ($\approx$ 10\%) split, governed by cryptographic checksums.
+Test ($\approx$ 10\%) split, governed by provenance checksums.
 To ensure robust evaluation, classical models are evaluated over 5 random seeds
 to report mean $\pm$ standard deviation, while computationally heavy deep models
-(DFAT, ECAPA-TDNN) are evaluated via single deterministic runs.
+(DFAT, ECAPA-TDNN) are evaluated across 5 random seeds to report mean and standard deviation.
 
 Driven by Weighted F1 as the primary anchor metric, results on the held-out
 test set suggest that DFAT Late Fusion achieves the highest performance in our evaluation.
@@ -103,7 +103,7 @@ significant regularization effect on the acoustic signal.
 \section{Contributions}
 This thesis contributes to the field by:
 \begin{itemize}
-    \item Establishing a strict, cryptographically verified, speaker-independent benchmark for Vietnamese SER.
+    \item Establishing a strict, integrity-checked, speaker-independent benchmark for Vietnamese SER.
     \item Proposing DFAT, an ASR-assisted audio-linguistic fusion pipeline that enhances classification by leveraging text generated directly from speech.
     \item Providing deep error analysis regarding ASR noise propagation and specific emotional class confusions.
 \end{itemize}
@@ -139,22 +139,95 @@ To systematically address the challenges of Vietnamese SER, this thesis defines 
 
 \chapter{Materials and Methods}
 
-\section{Dataset and Preprocessing}
-We utilize the Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec}, publicly available on Hugging Face. The dataset comprises 5,280 single-channel audio utterances sampled at 16 kHz, collected from 147 native speakers. The utterances are annotated into four classes: Neutral (1,507 samples), Angry (1,466 samples), Happy (1,228 samples), and Sad (1,079 samples).
+\section{Dataset Audit and Split Protocol}
+We utilize the Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec}, publicly available on Hugging Face. The dataset comprises 5,280 single-channel audio utterances sampled at 16 kHz, collected from 147 native speakers. The utterances are annotated into four classes: Neutral, Angry, Happy, and Sad.
 
-Preprocessing involves strict standardization: all audio files are resampled to 16 kHz and normalized for amplitude. To handle varying audio lengths for deep models, waveforms are dynamically padded or truncated to a consistent maximum duration during batching. The class distribution exhibits a mild imbalance (Neutral-to-Sad ratio $\approx 1.4\times$), which is handled during evaluation through the use of Macro-F1 and Unweighted Average Recall metrics rather than synthetic resampling.
+Table~\ref{tab:dataset_snapshot} provides a high-level summary of the dataset.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Property} & \textbf{Statistic} \\
+\midrule
+Total Samples & 5,280 \\
+Total Speakers & 147 \\
+Classes & Angry, Happy, Neutral, Sad \\
+Train / Val / Test Samples & 4,120 / 484 / 676 ($\approx$ 80/10/10) \\
+Train / Val / Test Speakers & 32 / 68 / 47 \\
+\bottomrule
+\end{tabular}
+\caption{ViSEC Dataset Snapshot.}
+\label{tab:dataset_snapshot}
+\end{table}
+
+\subsection{Utterance Characteristics}
+The duration of speech utterances directly impacts the receptive field requirements of acoustic models. Figure~\ref{fig:duration_violin} illustrates the length distribution across classes. Overall, the dataset has a mean duration of 2.17s ($\sigma$: 1.25s), with a median of 1.94s. Approximately 90\% of samples are shorter than 3.58s, and 95\% are shorter than 4.42s. All preprocessing pipelines standardize audio to 16 kHz and apply dynamic padding up to a consistent maximum duration.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/duration_violin.png}
+    \caption{Utterance duration distribution by emotion class.}
+    \label{fig:duration_violin}
+\end{figure}
+
+\subsection{Speaker-Independent Split Audit}
+To eliminate identity leakage, speakers are strictly partitioned. Figure~\ref{fig:speaker_hist} demonstrates the distribution of utterances per speaker across the Train, Validation, and Test splits, confirming no speaker overlap.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/speaker_histogram.png}
+    \caption{Histogram of utterances per speaker, colored by split.}
+    \label{fig:speaker_hist}
+\end{figure}
+
+Table~\ref{tab:class_dist} confirms that despite the greedy speaker-independent allocation, the relative class distribution remains stable across splits without severe degradation.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Split} & \textbf{Angry} & \textbf{Happy} & \textbf{Neutral} & \textbf{Sad} \\
+\midrule
+Train & 1157 & 959 & 1162 & 842 \\
+Val & 134 & 112 & 139 & 99 \\
+Test & 175 & 157 & 206 & 138 \\
+\bottomrule
+\end{tabular}
+\caption{Class distribution across splits.}
+\label{tab:class_dist}
+\end{table}
+
 
 \section{Experimental Protocol}
 To ensure academic rigor, we implement a highly controlled experimental protocol:
 \begin{itemize}
     \item \textbf{Speaker-Independent Split}: The 147 speakers are partitioned such that no speaker in the training set appears in the validation or test sets. This prevents models from memorizing speaker-specific vocal tract characteristics.
     \item \textbf{Train/Validation/Test Allocation}: The split roughly follows an 80/10/10 ratio. 
-    \item \textbf{No Leakage \& Checksum}: The allocation is computed via a greedy algorithm and saved to \texttt{split\_manifest.json}. A SHA-256 cryptographic checksum verifies the integrity of this split at runtime for every evaluated model.
+    \item \textbf{No Leakage \& Checksum}: The allocation is computed via a greedy algorithm and saved to \texttt{split\_manifest.json}. A SHA-256 checksum verifies the integrity of this split at runtime for every evaluated model.
     \item \textbf{Validation Tuning}: Hyperparameter tuning is strictly isolated
     to the validation set. The test set is only queried once for final reporting.
     \item \textbf{Seed Control}: Stochastic processes in both classical ML models and
     deep learning architectures are controlled via 5 fixed random seeds (e.g., 42, 123, 456, 789, 2026) to evaluate stability.
 \end{itemize}
+
+\section{Feature and Representation Analysis}
+Understanding how raw audio is projected into a discriminative latent space is critical.
+
+\subsection{MFCC Representation}
+MFCCs are not merely arbitrary 40-dimensional vectors; they represent a perceptually-scaled compression of the audio spectrum. By mapping frequency bins to the Mel scale, they mimic human auditory perception, emphasizing lower frequencies while suppressing high-frequency noise. In our pipeline, we extract 40 coefficients. However, temporal mean-pooling collapses the dynamic prosodic contour into a static snapshot. While this loses temporal evolution, it provides a highly compact, fixed-size representation that stabilizes classical classifiers like Random Forest.
+
+\subsection{ECAPA-TDNN Log-Mel Frontend}
+Deep models operate on richer inputs. We utilize an 80-channel log-mel spectrogram. The 80 bins preserve substantially more spectral detail than 40-d MFCCs. Within the ECAPA-TDNN architecture, a channel width of 256 expands the model's capacity to learn complex feature maps across time and frequency. Finally, the network projects the output into a compact 192-d embedding. This bottleneck size is a deliberate architectural choice: it forces the model to distill high-level emotional characteristics while preventing overfitting on the relatively small ViSEC dataset.
+
+\subsection{DFAT Pseudo-Multimodal Streams}
+The proposed DFAT pipeline relies on three distinct representation streams:
+\begin{itemize}
+    \item \textbf{Acoustic Stream (WavLM)}: Captures deep acoustic features (e.g., prosody, energy, pitch).
+    \item \textbf{ASR Stream (Whisper)}: Acts as an acoustic-to-linguistic bridge, inferring phonetic and lexical content.
+    \item \textbf{Linguistic Stream (PhoBERT)}: Projects the inferred text into a semantic embedding space.
+\end{itemize}
+Crucially, DFAT is a \textit{pseudo-multimodal} system. Because transcripts are generated dynamically via ASR rather than provided as ground-truth, the quality of the linguistic representation is strictly upper-bounded by Whisper's transcription accuracy.
 
 \section{Baseline Models}
 We evaluate baselines categorized into two distinct paradigms:
@@ -181,6 +254,15 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
     \item \textbf{Fusion Strategy}: The embeddings are combined via an \textit{early fusion of embeddings} (concatenated to a 1536-d vector), followed by a \textit{late ensembling of three classifier families} (Logistic Regression, Random Forest, XGBoost) whose predicted probabilities are ensemble-weighted.
     \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical "how" of the speech (pitch, energy), the ASR branch infers the "what" (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle Whisper transcription errors by adjusting stream and classifier weights dynamically.
 \end{itemize}
+
+\section{Model Configuration and Sensitivity}
+Hyperparameters dictate the learning capacity and generalization limits of the models.
+
+\textbf{MFCC + Random Forest}: We utilize \texttt{n\_estimators=300}. Increasing the number of trees stabilizes the ensemble and reduces variance, though at the cost of marginally slower inference. Random Forest serves as a highly robust baseline because it resists overfitting on small datasets without requiring exhaustive tuning, and handles the mild class imbalance effectively. The \texttt{random\_state} is fixed purely for reproducible evaluation.
+
+\textbf{ECAPA-TDNN}: The architecture employs \texttt{channels=256} and \texttt{emb\_size=192}. While larger embeddings theoretically capture more variance, 192-d is optimal for datasets of this scale to prevent memorization. We train using Adam with an initial learning rate of \texttt{3e-4}; higher rates induce training instability, while lower rates stall convergence. A \texttt{ReduceLROnPlateau} scheduler drops the learning rate when validation F1 plateaus, and early stopping with \texttt{patience=20} over a maximum of \texttt{100} epochs effectively prevents overtraining.
+
+\textbf{DFAT Hybrid Fusion}: The fusion vector concatenates the 768-d WavLM and 768-d PhoBERT representations into a 1536-d vector. The choice of frozen backbones (\texttt{WavLM-base-plus}, \texttt{Whisper-small}, \texttt{PhoBERT-base-v2}) represents a delicate balance between representational power and computational feasibility. Scaling up the ASR model (e.g., to \texttt{Whisper-large}) would increase lexical accuracy but exponentially increase inference latency, demonstrating the fundamental quality-latency trade-off in pseudo-multimodal systems.
 
 \section{Evaluation Protocol}
 Because the dataset is mildly imbalanced, relying solely on standard Accuracy
@@ -209,7 +291,7 @@ Reproducibility is enforced through:
 \chapter{Results and Discussion}
 
 \section{Main Benchmark Results}
-The primary benchmark results on the cryptographically secured test set are presented in Table~\ref{tab:benchmark}.
+The primary benchmark results on the integrity-checked test set are presented in Table~\ref{tab:benchmark}.
 
 \begin{table}[h]
 \centering
@@ -270,8 +352,15 @@ Sad     & 0.784 & 0.704 & 0.741 & 108 \\
 
 \textbf{What it means for Vietnamese SER}: Acoustic-only models are fundamentally limited by class overlap; thus, linguistic features are particularly critical for distinguishing subtle emotional states.
 
-\section{Confusion Analysis}
-Analyzing the confusion mechanisms reveals how the models fail.
+\section{Error and Failure Analysis}
+Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{report_images/per_class_f1.png}
+    \caption{Per-class F1 comparison between acoustic baseline and DFAT.}
+    \label{fig:per_class_f1}
+\end{figure}
 
 \begin{figure*}[t]
     \centering
@@ -292,19 +381,14 @@ Analyzing the confusion mechanisms reveals how the models fail.
     \label{fig:confusion_matrices}
 \end{figure*}
 
+\subsection{Specific Failure Modalities}
 \begin{itemize}
-    \item \textbf{Happy $\rightarrow$ Neutral (31 cases for DFAT)}: In Vietnamese, conversational "Happy" speech often lacks dramatic pitch elevation. Without strong lexical markers of joy, Whisper transcripts are mundane, causing both the acoustic and linguistic streams to default to the majority "Neutral" class.
-    \item \textbf{Sad $\rightarrow$ Neutral (20 cases for DFAT)}: Both states share low acoustic energy and narrow pitch ranges. When a speaker sighs, ASR struggles to generate meaningful text, depriving the text branch of signal and resulting in an overlap with Neutrality.
-    \item \textbf{ASR Interference}: While ASR significantly helps disambiguate Neutrality, it can act as a distractor for Angry speech if the rapid, loud utterance causes Whisper to hallucinate text, pushing the PhoBERT embedding out of distribution.
+    \item \textbf{Happy $\rightarrow$ Neutral (31 cases for DFAT)}: In Vietnamese, conversational "Happy" speech often lacks the dramatic pitch elevation seen in acted English datasets. Without strong lexical markers of joy, Whisper transcripts are mundane (e.g., "vang a"), causing both the acoustic and linguistic streams to default to the majority "Neutral" class.
+    \item \textbf{Sad $\rightarrow$ Neutral (20 cases for DFAT)}: Both states share low acoustic energy and narrow pitch ranges. When a speaker sighs or whispers, the ASR model struggles to generate meaningful text, depriving the text branch of signal and resulting in an overlap with Neutrality.
+    \item \textbf{ASR Interference (Angry)}: While ASR significantly helps disambiguate Neutrality, it can act as a distractor for Angry speech. Rapid, loud utterances frequently cause Whisper to hallucinate incorrect text or stutter, pushing the PhoBERT embedding out of distribution and leading to misclassifications that the acoustic-only model would have avoided.
 \end{itemize}
 
-\textbf{Summary of Error Modalities}:
-In our evaluation, misclassifications broadly stem from three sources:
-\begin{itemize}
-    \item \textbf{Acoustic Ambiguity}: Errors like Happy $\rightarrow$ Neutral occur because conversational speech lacks the exaggerated pitch variations found in acted corpora.
-    \item \textbf{ASR Noise}: Errors where Angry is misclassified arise when high-energy speech degrades Whisper's transcription, introducing linguistic noise that misleads the text branch.
-    \item \textbf{Class Overlap}: Sad and Neutral states intrinsically overlap in both low acoustic energy and subdued lexical content, making them challenging to separate regardless of the modality used.
-\end{itemize}
+\textbf{Summary}: Acoustic-only models fail when emotional prosody is ambiguous. Fusion models resolve this ambiguity using text, but introduce a new failure mode: vulnerability to ASR transcription noise.
 
 \section{Ablation Study}
 To prove the necessity of the proposed streams, we conducted a rigorous ablation study (Table~\ref{tab:ablation}).
@@ -340,13 +424,25 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 
 \textbf{What it means for Vietnamese SER}: Researchers should not assume that simply concatenating multimodal features guarantees improvement; careful fusion strategies and high-quality ASR are strictly required.
 
-\section{Efficiency and Trade-Off}
-A practical deployment requires analyzing the compute cost.
-\begin{itemize}
-    \item \textbf{Latency}: Classical MFCC+RF operates with sub-millisecond inference latency entirely on the CPU, making it the only viable option for ultra-low-power edge devices.
-    \item \textbf{Memory \& Cost}: DFAT requires sequential passes through WavLM (94M), Whisper (244M), and PhoBERT (135M). This incurs a heavy memory footprint and mandates a dedicated GPU.
-\end{itemize}
-\textbf{Conclusion}: The $+0.35$ gain in wF1 offered by DFAT over classical baselines comes at a severe computational cost. It appears exclusively suited for cloud-hosted environments where high accuracy justifies the increased inference budget.
+\section{Efficiency and Cost Trade-Off}
+A practical deployment requires analyzing the compute cost. Table~\ref{tab:efficiency} summarizes the quality versus footprint trade-off across the evaluated pipelines.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} & \textbf{Hardware} & \textbf{Est. Parameters} \\
+\midrule
+MFCC + RF & 0.365 & 0.351 & 0.393 & CPU & $\sim$ 0.5M \\
+ECAPA-TDNN & 0.613 & 0.613 & 0.609 & GPU & $\sim$ 20.8M \\
+DFAT Late Fusion & 0.717 & 0.716 & 0.717 & GPU & $\sim$ 473M \\
+\bottomrule
+\end{tabular}
+\caption{Quality vs. Cost Trade-off Comparison.}
+\label{tab:efficiency}
+\end{table}
+
+\textbf{Conclusion}: The $+0.35$ gain in wF1 offered by DFAT over classical baselines (and $+0.10$ over ECAPA-TDNN) comes at a severe computational cost. DFAT requires sequential passes through WavLM ($\sim$94M), Whisper-small ($\sim$244M), and PhoBERT ($\sim$135M). This incurs a massive memory footprint and mandates dedicated GPU hardware. Conversely, classical MFCC+RF operates with sub-millisecond inference latency entirely on the CPU, remaining the only viable option for ultra-low-power edge devices. The deployment of DFAT is exclusively suited for cloud-hosted environments where maximal accuracy justifies the increased inference budget.
 
 \section{Discussion}
 The findings reveal the true difficulty of Vietnamese SER. Classical methods like MFCC fail dramatically in a speaker-independent setting because they memorize speaker timbre instead of emotion semantics. The ECAPA-TDNN generalized its representation significantly better. Ultimately, DFAT's performance may be attributed to its ability to mimic human perception: when a tone is ambiguous, we rely on the context of the words being spoken. However, the reliance on pseudo-multimodality (ASR text) creates an inherent ceiling bound by the ASR system's word error rate under noisy emotional conditions. 
@@ -379,7 +475,7 @@ To advance this research, future work should focus on:
 \chapter{Supplementary Material}
 To ensure total transparency, the following artifacts are provided in the associated GitHub repository:
 \begin{itemize}
-    \item \textbf{Split Manifest}: \texttt{split\_manifest.json} contains the exact speaker mappings and a cryptographic hash to guarantee the dataset split was not altered.
+    \item \textbf{Split Manifest}: \texttt{split\_manifest.json} contains the exact speaker mappings and a provenance hash to guarantee the dataset split was not altered.
     \item \textbf{Pipeline Details}: Full hyperparameter grids, implementation code, and reproduction scripts are documented in \texttt{SER.ipynb} and the source repository.
 \end{itemize}
 

@@ -1,6 +1,6 @@
 # Experimental Insights: Vietnamese SER on ViSEC
 
-This document captures the detailed setup, metrics, and insights derived from the evaluation of multiple Speech Emotion Recognition models on the ViSEC dataset. All experiments follow a strict **speaker-independent, leak-free evaluation protocol** governed by a cryptographic split manifest.
+This document captures the detailed setup, metrics, and insights derived from the evaluation of multiple Speech Emotion Recognition models on the ViSEC dataset. All experiments follow a strict **speaker-independent, leak-free evaluation protocol** governed by an integrity-checked split manifest.
 
 ---
 

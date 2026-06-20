@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by cryptographic checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
+This thesis presents a systematic comparative benchmark and an ASR-assisted audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER) on the ViSEC dataset. We evaluate three primary classification pipelines representing distinct paradigms: handcrafted features with classical ML (MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN), and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM acoustic embeddings with PhoBERT linguistic embeddings derived via Whisper ASR. All experiments follow a strict leak-free protocol with a fixed speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) / Test ($\approx$ 10\%) split, governed by provenance checksums. All primary models are evaluated over 5 random seeds to report mean $\pm$ standard deviation. On the held-out test set, DFAT Late Fusion achieves the best performance, outperforming the baseline MFCC+RandomForest and ECAPA-TDNN-based baseline by significant margins. Ablation studies confirm that both acoustic and linguistic streams contribute to DFAT's superiority, with the linguistic stream providing the largest gains for acoustically ambiguous classes.
 \end{abstract}
 
 \tableofcontents
@@ -125,7 +125,7 @@ We report Weighted F1-Score (primary metric), Macro F1-Score, Accuracy, per-clas
 To ensure the robustness of our findings, stochastic pipelines (RF, XGBoost, and deep models) are evaluated over 5 random seeds. The results reported are the mean $\pm$ standard deviation across these seeds. Deterministic models (LogReg, SVC-RBF) are evaluated once.
 
 \section{Leak-Free Protocol}
-All hyperparameter tuning (Optuna) and model selection decisions use the validation set exclusively. The results are fully reproducible via cryptographic split verification.
+All hyperparameter tuning (Optuna) and model selection decisions use the validation set exclusively. The results are fully reproducible via integrity-checked split verification.
 
 \chapter{Baselines and Results}
 
@@ -241,7 +241,7 @@ Whisper's transcription errors introduce significant noise into the linguistic s
 \end{enumerate}
 
 \section{Reproducibility and Ethics}
-All code for the experimental setup, data splitting, training loops, and benchmarking was written in Python. A cryptographic checksum ensures that all methods are evaluated against identical data splits. A structured validation script guarantees that the reported LaTeX metrics strictly match the generated JSON output. No personally identifiable information was extracted.
+All code for the experimental setup, data splitting, training loops, and benchmarking was written in Python. An integrity checksum ensures that all methods are evaluated against identical data splits. A structured validation script guarantees that the reported LaTeX metrics strictly match the generated JSON output. No personally identifiable information was extracted.
 
 \chapter{Conclusion}
 This thesis systematically evaluated speech emotion recognition approaches on the ViSEC dataset under a strict leak-free, speaker-independent evaluation protocol. Key findings:
