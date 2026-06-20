@@ -9,3 +9,9 @@ Report_SER.aux
 Report_SER.log
 Report_SER.out
 Report_SER.pdf
+# Model checkpoints
+*.pth
+# LaTeX extras
+Report_SER.toc
+Report_SER.lof
+Report_SER.lot
