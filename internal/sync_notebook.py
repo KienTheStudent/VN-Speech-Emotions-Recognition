@@ -72,7 +72,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-benchmark_path = Path("benchmark_results_gpu.json")
+benchmark_path = ROOT_DIR / "benchmark_results_gpu.json"
 if benchmark_path.exists():
     with open(benchmark_path, 'r') as f:
         data = json.load(f)
@@ -109,7 +109,7 @@ else:
 cell_ablation = """# ==================== 4. ABLATION STUDY RESULTS ====================
 import pandas as pd
 
-ablation_path = Path("DFAT_Hybrid_Fusion/ablation_results.json")
+ablation_path = ROOT_DIR / "DFAT_Hybrid_Fusion" / "ablation_results.json"
 if ablation_path.exists():
     with open(ablation_path, 'r') as f:
         data = json.load(f)
@@ -132,7 +132,7 @@ else:
 """
 
 cell_demo = """# ==================== 5. LIVE INFERENCE DEMO ====================
-demo_audio = "sample_visec.wav"
+demo_audio = ROOT_DIR / "sample_visec.wav"
 
 if not Path(demo_audio).exists():
     print(f"Demo file {demo_audio} not found. Please provide an audio file.")
@@ -140,7 +140,7 @@ else:
     print(f"Running Inference on {demo_audio}\\n")
     import IPython.display as ipd
     from IPython.display import display
-    display(ipd.Audio(demo_audio))
+    display(ipd.Audio(str(demo_audio)))
 
     # ECAPA Inference
     from ECAPA.predict_emotion import EmotionClassifier
