@@ -10,6 +10,8 @@
 \usepackage{dblfloatfix}
 \usepackage{titlesec}
 \usepackage{geometry}
+\usepackage{multirow}
+\usepackage{amssymb}
 
 \geometry{margin=1in}
 
@@ -118,18 +120,18 @@ This thesis contributes to the field by:
     \item Providing deep error analysis regarding ASR noise propagation and specific emotional class confusions.
 \end{itemize}
 
-\section{Related Work}
-\subsection{Classical Approaches}
+\chapter{Related Work}
+\section{Classical Approaches}
 Traditional SER heavily relies on handcrafted acoustic features, notably Mel-Frequency Cepstral Coefficients (MFCCs), combined with classical machine learning classifiers such as Support Vector Machines or Random Forests. While computationally efficient, these approaches often struggle to generalize across diverse speakers and environmental conditions.
 
-\subsection{Deep Audio Models}
+\section{Deep Audio Models}
 The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations.
 
-\subsection{Audio-Linguistic Fusion}
+\section{Audio-Linguistic Fusion}
 Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition to infer text from audio, followed by semantic embedding models like PhoBERT, merging both streams to achieve superior classification performance.
 
-\section{Objectives}
-\subsection{Research Questions}
+\chapter{Objectives}
+\section{Research Questions}
 This thesis seeks to answer the following research questions:
 \begin{itemize}
     \item \textbf{RQ1}: Does the proposed DFAT audio-linguistic fusion method outperform baseline models under a strict speaker-independent protocol?
@@ -137,7 +139,7 @@ This thesis seeks to answer the following research questions:
     \item \textbf{RQ3}: What is the trade-off between recognition accuracy and inference latency when moving from acoustic-only to multi-stream models?
 \end{itemize}
 
-\subsection{Specific Objectives}
+\section{Specific Objectives}
 To systematically address the challenges of Vietnamese SER, this thesis defines the following measurable objectives:
 \begin{itemize}
     \item \textbf{Objective 1}: Construct and validate a strict speaker-independent evaluation pipeline to eliminate identity leakage.
@@ -186,6 +188,13 @@ To eliminate identity leakage, speakers are strictly partitioned. Figure~\ref{fi
 
 \textbf{Scientific Rationale for Speaker-Independence}:
 In early SER literature, random shuffling was common. However, randomly splitting utterances inevitably places samples from the same speaker in both the training and test sets. When this occurs, deep neural networks rapidly learn to exploit \textit{speaker identity} (timbre, baseline pitch contour, habitual speaking rate) rather than learning generalized \textit{emotion semantics}. Essentially, the network degrades into a speaker recognition system. Enforcing a strict speaker-independent split prevents this identity leakage, ensuring the measured F1 score reflects true emotional generalization to unseen speakers, rather than mere acoustic memorization.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/speaker_histogram.png}
+    \caption{Histogram of utterances per speaker, colored by split.}
+    \label{fig:speaker_hist}
+\end{figure}
 
 Table~\ref{tab:class_dist} confirms that despite the greedy speaker-independent allocation, the relative class distribution remains stable across splits without severe degradation. Figure~\ref{fig:class_dist} visualizes this balance.
 
@@ -307,78 +316,35 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
     \label{fig:arch_dfat}
 \end{figure}
 
-\section{Model Configuration and Sensitivity}
-Hyperparameters dictate the learning capacity and generalization limits of the models. We document the sensitivity of critical parameters governing our architecture. Note that parameters such as \texttt{random\_state} or \texttt{seed} are utilized strictly for reproducibility, not performance tuning.
+\section{Model Configuration and Design Rationale}
+Table~\ref{tab:design_choices} summarizes the key hyperparameters across all three pipelines, with concise scientific justifications. Parameters such as \texttt{random\_state} and \texttt{seed} are used strictly for reproducibility, not performance tuning.
 
-\subsection{Classical Pipeline (MFCC + RandomForest)}
-
-\textbf{Parameter: \texttt{n\_estimators}}
-\begin{itemize}
-    \item \textbf{Role}: Determines the number of decision trees in the ensemble.
-    \item \textbf{Effect when increased}: Stabilizes the ensemble variance and smooths decision boundaries, improving robustness. Marginally increases inference latency.
-    \item \textbf{Effect when decreased}: Increases the risk of variance and lowers overall accuracy due to a less diverse vote.
-    \item \textbf{Why chosen here}: Set to \texttt{300}. It provides a sufficiently large ensemble to handle the mild class imbalance without hitting the point of diminishing computational returns.
-\end{itemize}
-
-\textbf{Parameter: \texttt{max\_depth}}
-\begin{itemize}
-    \item \textbf{Role}: Controls the maximum depth of each individual decision tree.
-    \item \textbf{Effect when increased}: Allows the model to learn highly complex, specific rules, leading to severe overfitting on the 40-d MFCC training set.
-    \item \textbf{Effect when decreased}: Forces the trees to remain shallow (stumps), leading to underfitting where the model cannot capture the non-linear boundaries between emotions.
-    \item \textbf{Why chosen here}: Left unconstrained (with minimum sample splits). Random Forest implicitly regularizes deep trees via bagging, allowing individual trees to overfit while the ensemble remains generalized.
-\end{itemize}
-
-\subsection{End-to-End Pipeline (ECAPA-TDNN)}
-
-\textbf{Parameter: \texttt{channels}}
-\begin{itemize}
-    \item \textbf{Role}: The number of convolutional filters in the 1D Time-Delay Neural Network blocks.
-    \item \textbf{Effect when increased}: Expands the representational capacity of the network, allowing it to capture highly nuanced spectral shifts. Promotes overfitting on small datasets.
-    \item \textbf{Effect when decreased}: Bottlenecks the information flow early in the network, resulting in an inability to differentiate acoustically similar classes (e.g., Happy vs. Angry).
-    \item \textbf{Why chosen here}: Set to \texttt{256}. It provides a strong balance between capacity and regularization for a dataset of $\approx$4000 training utterances.
-\end{itemize}
-
-\textbf{Parameter: \texttt{emb\_size}}
-\begin{itemize}
-    \item \textbf{Role}: The dimensionality of the final dense vector before the classifier.
-    \item \textbf{Effect when increased}: Creates a vast latent space that can easily memorize the training data, leading to generalization failure on unseen speakers.
-    \item \textbf{Effect when decreased}: Compresses the emotional state too aggressively, losing the variance required to separate four distinct classes.
-    \item \textbf{Why chosen here}: Set to \texttt{192}. This acts as a deliberate architectural bottleneck, forcing the network to distill only the most robust, high-level emotional characteristics.
-\end{itemize}
-
-\textbf{Parameter: \texttt{learning\_rate}}
-\begin{itemize}
-    \item \textbf{Role}: Controls the step size during Adam optimization.
-    \item \textbf{Effect when increased}: Causes the loss landscape optimization to diverge; the network fails to find a stable local minimum and validation F1 oscillates violently.
-    \item \textbf{Effect when decreased}: The model learns too slowly, either stalling at a suboptimal minimum or requiring an unfeasible number of epochs to converge.
-    \item \textbf{Why chosen here}: Initialized at \texttt{3e-4}, a standard stable rate for Adam on audio spectrograms, allowing steady initial descent.
-\end{itemize}
-
-\textbf{Parameter: \texttt{scheduler patience}}
-\begin{itemize}
-    \item \textbf{Role}: The number of epochs the \texttt{ReduceLROnPlateau} scheduler will wait without validation improvement before decaying the learning rate.
-    \item \textbf{Effect when increased}: Wastes computational resources by training at a suboptimal learning rate long after the model has stalled.
-    \item \textbf{Effect when decreased}: Drops the learning rate prematurely in response to normal stochastic noise in the validation curve, artificially halting training.
-    \item \textbf{Why chosen here}: Set to \texttt{20} epochs. Given the volatility of training deep audio models on small datasets, 20 epochs provides a sufficient buffer to distinguish a true plateau from temporary noise.
-\end{itemize}
-
-\subsection{DFAT Pipeline}
-
-\textbf{Parameter: \texttt{fusion dimension}}
-\begin{itemize}
-    \item \textbf{Role}: The size of the concatenated feature vector passed to the Late Ensemble.
-    \item \textbf{Effect when increased}: Indicates the inclusion of larger backbones, drastically increasing the feature space the ensemble must navigate, which can induce the curse of dimensionality.
-    \item \textbf{Effect when decreased}: Indicates the use of smaller or heavily projected backbones, potentially losing critical semantic or acoustic nuance.
-    \item \textbf{Why chosen here}: Fixed at \texttt{1536-d} (768-d WavLM + 768-d PhoBERT). This represents the natural output dimensionality of the \texttt{base} variants of both models, requiring no lossy down-projection before fusion.
-\end{itemize}
-
-\textbf{Parameter: \texttt{model size in DFAT streams}}
-\begin{itemize}
-    \item \textbf{Role}: The parameter count of the foundational models (WavLM, Whisper, PhoBERT).
-    \item \textbf{Effect when increased}: Utilizing \texttt{large} variants significantly improves text transcript quality and acoustic depth, but exponentially increases inference latency and GPU VRAM requirements.
-    \item \textbf{Effect when decreased}: Utilizing \texttt{tiny} variants severely degrades ASR accuracy, turning the linguistic stream from a helpful semantic signal into active noise.
-    \item \textbf{Why chosen here}: \texttt{WavLM-base-plus}, \texttt{Whisper-small}, and \texttt{PhoBERT-base-v2} represent the optimal inflection point on the quality-latency trade-off curve, maintaining linguistic integrity without requiring multi-GPU deployment.
-\end{itemize}
+\begin{table*}[ht]
+\centering
+\small
+\begin{tabular}{p{2.8cm} p{2.2cm} p{3.5cm} p{5.5cm}}
+\toprule
+\textbf{Pipeline} & \textbf{Parameter} & \textbf{Why it matters} & \textbf{Why this value} \\
+\midrule
+\multirow{2}{*}{MFCC + RF}
+& \texttt{n\_mfcc=40} & Dimensionality of the acoustic input vector. & 40 coefficients capture sufficient spectral resolution while keeping the feature space small enough for a classical classifier on $\approx$4k samples. \\
+& \texttt{n\_est.=300} & Controls ensemble diversity and variance. & Provides stable variance reduction; beyond 300 trees, returns diminish while CPU latency grows. \\
+\midrule
+\multirow{4}{*}{ECAPA-TDNN}
+& \texttt{channels=256} & Width of TDNN convolutional blocks. & Balances representational capacity against overfitting risk on the small ViSEC training set. \\
+& \texttt{emb\_size=192} & Bottleneck before classifier. & Forces the model to distill only robust emotional characteristics, preventing speaker memorization. \\
+& \texttt{lr=3e-4} & Optimization step size (Adam). & Standard stable rate for audio spectrograms; higher values cause divergence, lower values stall. \\
+& \texttt{patience=20} & Epochs before LR decay. & Buffers against stochastic noise in validation F1 on small-data training runs. \\
+\midrule
+\multirow{3}{*}{DFAT Fusion}
+& \texttt{fusion=1536-d} & Concatenated embedding size. & Natural output of WavLM-base (768-d) + PhoBERT-base (768-d); avoids lossy down-projection. \\
+& \texttt{Whisper-small} & ASR transcript quality. & Best quality-latency inflection point; \texttt{tiny} degrades text quality catastrophically (ablation: $-0.14$ wF1). \\
+& Ensemble (LR/RF/XGB) & Classifier diversity. & Weighted late ensemble reduces sensitivity to any single classifier's bias on noisy fusion features. \\
+\bottomrule
+\end{tabular}
+\caption{Design choices and rationale for key hyperparameters.}
+\label{tab:design_choices}
+\end{table*}
 
 \section{Evaluation Protocol}
 
@@ -587,42 +553,52 @@ Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
 \label{tab:ablation}
 \end{table}
 
-\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, suggesting that ASR text alone is insufficient to determine emotion. While the heavily optimized full DFAT pipeline achieves state-of-the-art results, simple uncalibrated fusion (Early Fusion at 0.3995 or stream-level Late Fusion at 0.3408) can actually underperform the acoustic-only baseline (0.4329). This indicates that the linguistic stream acts best as a supplementary signal rather than an independent equal, and highlights the difficulty of fusing modalities when the ASR text is noisy. Furthermore, downgrading Whisper-small to Whisper-tiny drops the linguistic performance precipitously, confirming that fusion success is highly dependent on the quality of the ASR transcript.
+\textbf{Interpretation}: The WavLM acoustic branch acts as the primary discriminative anchor. Removing the audio branch (Linguistic-only) drops performance dramatically, suggesting that ASR text alone is insufficient to determine emotion. Simple uncalibrated fusion (Early Fusion at 0.3995 or stream-level Late Fusion at 0.3408) can actually underperform the acoustic-only baseline (0.4329), indicating that the linguistic stream acts best as a supplementary signal, not an independent equal. Downgrading Whisper-small to Whisper-tiny drops linguistic performance precipitously, confirming that fusion success is highly dependent on ASR transcript quality.
 
-\textbf{What happened}: Ablation confirmed that combining modalities requires careful calibration, and removing either branch substantially impacts performance.
+Figure~\ref{fig:ablation_heatmap} provides a visual summary of all ablation configurations.
 
-\textbf{Why it happened}: Acoustic features encode primary prosody, while linguistic features encode semantic context. Poor alignment or noisy text (e.g., from Whisper-tiny) degrades the combined representation.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{report_images/ablation_heatmap.png}
+    \caption{Ablation heatmap: performance across fusion configurations and noise levels. Source: \texttt{ablation\_results.json}.}
+    \label{fig:ablation_heatmap}
+\end{figure}
 
-\textbf{What it means for Vietnamese SER}: Researchers should not assume that simply concatenating multimodal features guarantees improvement; careful fusion strategies and high-quality ASR are strictly required.
+Figure~\ref{fig:latency_quality} visualizes the quality vs. computational cost trade-off.
 
-\section{Efficiency and Cost Trade-Off}
-A practical Data Science deployment requires analyzing the compute cost. Table~\ref{tab:efficiency} summarizes the quality versus footprint trade-off across the evaluated pipelines.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\linewidth]{report_images/latency_vs_quality.png}
+    \caption{Quality vs. computational cost trade-off (log-scale parameters). Source: \texttt{benchmark\_results\_gpu.json}.}
+    \label{fig:latency_quality}
+\end{figure}
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lccccc}
-\toprule
-\textbf{Model} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} & \textbf{Hardware} & \textbf{Est. Parameters} \\
-\midrule
-MFCC + RF & 0.365 & 0.351 & 0.393 & CPU & $\sim$ 0.5M \\
-ECAPA-TDNN & 0.613 & 0.613 & 0.609 & GPU & $\sim$ 20.8M \\
-DFAT Late Fusion & 0.717 & 0.716 & 0.717 & GPU & $\sim$ 473M \\
-\bottomrule
-\end{tabular}
-\caption{Quality vs. Cost Trade-off Comparison.}
-\label{tab:efficiency}
-\end{table}
+Figure~\ref{fig:seed_stability} shows the seed stability of each pipeline.
 
-\textbf{Conclusion}: The $+0.35$ gain in wF1 offered by DFAT over classical baselines (and $+0.10$ over ECAPA-TDNN) comes at a severe computational cost. DFAT requires sequential passes through WavLM ($\sim$94M), Whisper-small ($\sim$244M), and PhoBERT ($\sim$135M). This incurs a massive memory footprint and mandates dedicated GPU hardware. 
-
-Why might a heavier model not be preferable in every setting?
-\begin{itemize}
-    \item \textbf{Edge / IoT Devices}: Classical MFCC+RF operates with sub-millisecond inference latency entirely on the CPU. For battery-powered edge computing where latency and power are critical, the classical pipeline remains the only viable option.
-    \item \textbf{Cloud / Serverless}: The deployment of DFAT is exclusively suited for cloud-hosted environments where batch processing is possible and maximal accuracy justifies the expensive GPU compute budget.
-\end{itemize}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\linewidth]{report_images/seed_stability.png}
+    \caption{Seed stability: wF1 mean $\pm$ std across seeds. Source: \texttt{benchmark\_results\_gpu.json}.}
+    \label{fig:seed_stability}
+\end{figure}
 
 \section{Discussion}
-The findings reveal the true difficulty of Vietnamese SER. Classical methods like MFCC fail dramatically in a speaker-independent setting because they memorize speaker timbre instead of generalized emotion semantics. The ECAPA-TDNN generalized its representation significantly better. Ultimately, DFAT's superior performance is attributed to its ability to mimic human perception: when a tone is ambiguous, we instinctively rely on the semantic context of the words being spoken. However, the reliance on pseudo-multimodality (ASR text) creates an inherent ceiling bound by the ASR system's word error rate under noisy emotional conditions. 
+The findings reveal the true difficulty of Vietnamese SER. Classical methods like MFCC fail dramatically in a speaker-independent setting because they memorize speaker timbre instead of generalized emotion semantics. The ECAPA-TDNN generalized its representation significantly better. Ultimately, DFAT's superior performance is attributed to its ability to mimic human perception: when a tone is ambiguous, we instinctively rely on the semantic context of the words being spoken. However, the reliance on pseudo-multimodality (ASR text) creates an inherent ceiling bound by the ASR system's word error rate under noisy emotional conditions.
+
+\chapter{Threats to Validity and Limitations}
+We proactively identify the following threats to the validity of our conclusions:
+
+\section{Speaker Shift}
+The speaker-independent split guarantees no identity leakage, but it introduces a subtle \textit{distribution shift}: test speakers may exhibit idiosyncratic prosodic patterns absent from training. With only 147 speakers split across three partitions, the test set contains only 47 speakers. If several test speakers have atypical vocal characteristics, per-class recall can degrade without reflecting a true model weakness.
+
+\section{ASR Noise Propagation}
+DFAT's linguistic stream is strictly upper-bounded by Whisper's transcription accuracy. Under extreme emotional prosody (shouting, whispering, crying), Whisper's word error rate increases substantially. This creates a cascading failure: poor transcripts produce out-of-distribution PhoBERT embeddings, which can actively harm the fusion rather than help it. Our ablation confirms this risk: the \texttt{Whisper-tiny} variant degrades fusion performance below the acoustic-only baseline.
+
+\section{Seed Sensitivity and Benchmark Fairness}
+The MFCC+RF pipeline was evaluated across 5 seeds ($\sigma=0.0094$), demonstrating measurable initialization sensitivity. However, ECAPA-TDNN and DFAT were each evaluated with a single seed due to computational constraints. This means their reported metrics lack variance estimates, and the true performance range of these deep models remains unknown. Future work should prioritize multi-seed evaluation for all pipelines.
+
+\section{Dataset Limitations}
+ViSEC is an \textit{acted} corpus. Speakers were instructed to produce specific emotions, which may not reflect spontaneous emotional expression. Additionally, with only 4 emotion classes and 5,280 samples, the dataset cannot capture the full complexity of human affect. Results may not transfer directly to spontaneous, in-the-wild Vietnamese speech.
 
 \chapter{Conclusion}
 \section{Conclusion}
@@ -650,11 +626,33 @@ To advance this research, future work should focus on:
 
 \appendix
 \chapter{Supplementary Material}
-To ensure total transparency, the following artifacts are provided in the associated GitHub repository:
+
+\section{Reproducibility Checklist}
 \begin{itemize}
-    \item \textbf{Split Manifest}: \texttt{split\_manifest.json} contains the exact speaker mappings and a provenance hash to guarantee the dataset split was not altered.
-    \item \textbf{Pipeline Details}: Full hyperparameter grids, implementation code, and reproduction scripts are documented in \texttt{SER.ipynb} and the source repository.
+    \item[$\checkmark$] \textbf{Split Manifest}: \texttt{split\_manifest.json} contains exact speaker-to-split mappings and a SHA-256 provenance checksum verified at runtime.
+    \item[$\checkmark$] \textbf{Benchmark Pipeline}: \texttt{benchmark\_methods\_gpu.py} is the single entry point for all primary benchmark evaluations.
+    \item[$\checkmark$] \textbf{Results Artifact}: \texttt{benchmark\_results\_gpu.json} stores all ranked results, per-class reports, and confusion matrices.
+    \item[$\checkmark$] \textbf{Ablation Artifact}: \texttt{DFAT\_Hybrid\_Fusion/ablation\_results.json} stores all fusion configuration experiments.
+    \item[$\checkmark$] \textbf{Figure Generation}: \texttt{generate\_report\_figures.py} regenerates all thesis plots from JSON artifacts.
+    \item[$\checkmark$] \textbf{Validation Gate}: \texttt{validate\_release.py} cross-checks LaTeX tables against JSON sources and verifies artifact integrity.
+    \item[$\checkmark$] \textbf{Seeds}: 5 fixed seeds (42, 123, 456, 789, 2026) for classical models; seed 42 for deep models.
+    \item[$\checkmark$] \textbf{Environment}: Python 3.12, PyTorch, HuggingFace Transformers. Full dependency list in \texttt{requirements.txt}.
 \end{itemize}
+
+\section{Artifact Inventory}
+\begin{tabular}{ll}
+\toprule
+\textbf{Artifact} & \textbf{Purpose} \\
+\midrule
+\texttt{Report\_SER.tex} & Source of truth for thesis (this document) \\
+\texttt{benchmark\_results\_gpu.json} & Primary benchmark metrics \\
+\texttt{ablation\_results.json} & DFAT ablation study metrics \\
+\texttt{split\_manifest.json} & Speaker-independent split definition \\
+\texttt{generate\_report\_figures.py} & Automated figure generation \\
+\texttt{validate\_release.py} & Cross-artifact integrity checker \\
+\texttt{internal/SER.ipynb} & Live inference demo notebook \\
+\bottomrule
+\end{tabular}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
