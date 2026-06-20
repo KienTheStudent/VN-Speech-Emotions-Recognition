@@ -205,6 +205,18 @@ Test & 175 & 157 & 206 & 138 \\
     \label{fig:class_dist}
 \end{figure}
 
+\subsection{Quantitative Balance Metrics}
+Beyond visual inspection, we quantify the dataset balance using information-theoretic measures. The Shannon entropy of the class distribution is $H = 1.9821$ bits out of a maximum $H_{\max} = \log_2(4) = 2.0$ bits, yielding a balance ratio of $H / H_{\max} = 0.9910$. This near-unity value confirms that the dataset is well-balanced. The imbalance ratio (largest class / smallest class) is $1.38$, which is mild. Crucially, this balance is preserved across splits: Train ($H/H_{\max}=0.9895$), Val ($0.9893$), and Test ($0.9889$), confirming that the greedy speaker-independent allocation does not introduce significant distributional shift.
+
+Figure~\ref{fig:samples_per_speaker} shows the distribution of samples per speaker, highlighting that speaker contribution varies considerably (range: 4--144 samples), which motivates the speaker-independent split to prevent high-contribution speakers from biasing the model.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/samples_per_speaker.png}
+    \caption{Samples per speaker (sorted descending), illustrating heterogeneous speaker contribution.}
+    \label{fig:samples_per_speaker}
+\end{figure}
+
 
 \section{Experimental Protocol}
 To ensure academic rigor, we implement a highly controlled experimental protocol:
@@ -237,7 +249,7 @@ The proposed DFAT pipeline relies on three distinct representation streams:
 Crucially, DFAT is a \textit{pseudo-multimodal} system. Because transcripts are generated dynamically via ASR rather than provided as ground-truth, the quality of the linguistic representation is strictly upper-bounded by Whisper's transcription accuracy.
 
 \section{Baseline Models}
-We evaluate baselines categorized into two distinct paradigms:
+We evaluate baselines categorized into two distinct paradigms. Figure~\ref{fig:arch_mfcc_rf} illustrates the classical pipeline.
 
 \textbf{Audio Features + Classical ML}:
 \begin{itemize}
@@ -245,22 +257,43 @@ We evaluate baselines categorized into two distinct paradigms:
     \item \textit{Classifier \& Output}: A Random Forest (RF) classifier with 300 estimators maps the 40-d vector to the 4 emotion classes.
 \end{itemize}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{report_images/arch_mfcc_rf.png}
+    \caption{Pipeline A: MFCC + Random Forest architecture.}
+    \label{fig:arch_mfcc_rf}
+\end{figure}
+
 \textbf{End-to-End Deep Audio (Simplified ECAPA-TDNN)}:
 \begin{itemize}
     \item \textit{Input \& Representation}: 80-channel mel-spectrograms pass through 1D dilated convolutions (Time-Delay Neural Networks) augmented with Squeeze-and-Excitation blocks to capture global channel dependencies.
     \item \textit{Classifier, Loss \& Output}: The resulting representation is passed through a dense layer, optimized via Cross-Entropy loss, outputting probabilities for the 4 classes.
 \end{itemize}
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\linewidth]{report_images/arch_ecapa.png}
+    \caption{Pipeline B: Simplified ECAPA-TDNN architecture.}
+    \label{fig:arch_ecapa}
+\end{figure}
+
 \section{Proposed Method: DFAT}
-The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-linguistic fusion architecture designed to supplement acoustic data with textual semantics. We emphasize that this is \emph{not} an independent text modality, but rather an inferred stream derived directly from the audio.
+The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-linguistic fusion architecture designed to supplement acoustic data with textual semantics. We emphasize that this is \emph{not} an independent text modality, but rather an inferred stream derived directly from the audio. Figure~\ref{fig:arch_dfat} illustrates the complete pipeline.
 
 \begin{itemize}
     \item \textbf{Audio Branch}: Raw waveforms are processed by a frozen \texttt{WavLM-base-plus} model, producing a 768-d acoustic embedding.
     \item \textbf{ASR Transcript Extraction}: The same waveform is passed through \texttt{Whisper-small} to generate a Vietnamese text transcript.
     \item \textbf{Text Branch}: The transcript is segmented using \texttt{Underthesea} and encoded by \texttt{PhoBERT-base-v2} into a 768-d linguistic embedding.
     \item \textbf{Fusion Strategy}: The embeddings are combined via an \textit{early fusion of embeddings} (concatenated to a 1536-d vector), followed by a \textit{late ensembling of three classifier families} (Logistic Regression, Random Forest, XGBoost) whose predicted probabilities are ensemble-weighted.
-    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical "how" of the speech (pitch, energy), the ASR branch infers the "what" (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle Whisper transcription errors by adjusting stream and classifier weights dynamically.
+    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle Whisper transcription errors by adjusting stream and classifier weights dynamically.
 \end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.95\linewidth]{report_images/arch_dfat.png}
+    \caption{Pipeline C: DFAT Dual-Stream ASR-Assisted Fusion architecture.}
+    \label{fig:arch_dfat}
+\end{figure}
 
 \section{Model Configuration and Sensitivity}
 Hyperparameters dictate the learning capacity and generalization limits of the models.
@@ -367,7 +400,7 @@ Sad     & 0.784 & 0.704 & 0.741 & 108 \\
 \textbf{What it means for Vietnamese SER}: Acoustic-only models are fundamentally limited by class overlap; thus, linguistic features are particularly critical for distinguishing subtle emotional states.
 
 \section{Error and Failure Analysis}
-Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}. The detailed confusion counts are presented in Figure~\ref{fig:confusion_matrices}.
+Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}. The detailed confusion counts are presented in Figure~\ref{fig:confusion_matrices}, and the dominant misclassification pairs are ranked in Figure~\ref{fig:top_confusion}.
 
 \begin{figure}[h]
     \centering
@@ -395,14 +428,33 @@ Analyzing the confusion mechanisms reveals how the models perceive the data and 
     \label{fig:confusion_matrices}
 \end{figure*}
 
-\subsection{Specific Failure Modalities}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{report_images/top_confusion_pairs.png}
+    \caption{Top misclassification pairs ranked by count (DFAT Late Fusion).}
+    \label{fig:top_confusion}
+\end{figure}
+
+We categorize the 149 total off-diagonal errors of the DFAT model into three distinct failure modalities:
+
+\subsection{Failure Mode 1: Acoustic Ambiguity}
+This category accounts for errors where the acoustic profiles of two emotions overlap significantly.
 \begin{itemize}
-    \item \textbf{Happy $\rightarrow$ Neutral (31 cases for DFAT)}: In Vietnamese, conversational "Happy" speech often lacks the dramatic pitch elevation seen in acted English datasets. Without strong lexical markers of joy, Whisper transcripts are mundane (e.g., "vang a"), causing both the acoustic and linguistic streams to default to the majority "Neutral" class.
-    \item \textbf{Sad $\rightarrow$ Neutral (20 cases for DFAT)}: Both states share low acoustic energy and narrow pitch ranges. When a speaker sighs or whispers, the ASR model struggles to generate meaningful text, depriving the text branch of signal and resulting in an overlap with Neutrality.
-    \item \textbf{ASR Interference (Angry)}: While ASR significantly helps disambiguate Neutrality, it can act as a distractor for Angry speech. Rapid, loud utterances frequently cause Whisper to hallucinate incorrect text or stutter, pushing the PhoBERT embedding out of distribution and leading to misclassifications that the acoustic-only model would have avoided.
+    \item \textbf{Happy $\rightarrow$ Neutral (31 cases, 25.2\% of Happy support)}: In Vietnamese, conversational ``Happy'' speech often lacks the dramatic pitch elevation seen in acted English datasets. Without strong lexical markers of joy, Whisper transcripts are mundane (e.g., ``vang a''), causing both the acoustic and linguistic streams to default to ``Neutral''.
+    \item \textbf{Sad $\rightarrow$ Neutral (20 cases, 18.5\% of Sad support)}: Both states share low acoustic energy and narrow pitch ranges. When a speaker sighs or whispers, the ASR model struggles to generate meaningful text, depriving the text branch of signal.
 \end{itemize}
 
-\textbf{Summary}: Acoustic-only models fail when emotional prosody is ambiguous. Fusion models resolve this ambiguity using text, but introduce a new failure mode: vulnerability to ASR transcription noise.
+\subsection{Failure Mode 2: ASR Transcription Noise}
+This category captures errors introduced by the ASR pipeline itself.
+\begin{itemize}
+    \item \textbf{Angry $\rightarrow$ Neutral (17 cases)}: Rapid, loud utterances frequently cause Whisper to hallucinate incorrect text or stutter, pushing the PhoBERT embedding out of distribution.
+    \item \textbf{Happy $\rightarrow$ Angry (16 cases)}: High-energy ``Happy'' speech can be acoustically similar to ``Angry'' speech. When ASR produces fragmented transcripts, the linguistic disambiguation fails.
+\end{itemize}
+
+\subsection{Failure Mode 3: Distribution Shift}
+Despite the near-perfect balance ratio ($H/H_{\max} = 0.99$), the speaker-independent split introduces subtle distributional differences. Speakers in the test set may exhibit idiosyncratic prosodic patterns not represented in training. This manifests as a slight degradation in per-class recall for ``Neutral'' in the ECAPA model (0.520) compared to its validation performance, suggesting that some test speakers produce ``Neutral'' speech with atypical energy contours.
+
+\textbf{Summary}: Acoustic-only models fail when emotional prosody is ambiguous. Fusion models resolve this ambiguity using text, but introduce a new failure mode: vulnerability to ASR transcription noise. Distribution shift from speaker-independent splitting creates a third, subtler source of error.
 
 \section{Ablation Study}
 To prove the necessity of the proposed streams, we conducted a rigorous ablation study (Table~\ref{tab:ablation}).
