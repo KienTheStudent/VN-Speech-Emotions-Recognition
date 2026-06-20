@@ -66,7 +66,7 @@ def extract_textual_features(text, model, tokenizer, device):
             features = np.expand_dims(features, 0)
     return features
 
-def predict_emotion(audio_path, model_dir):
+def predict_emotion(audio_path, model_dir, asr_model="vinai/PhoWhisper-large"):
     model_dir = Path(model_dir)
     
     # Load metadata
@@ -82,8 +82,8 @@ def predict_emotion(audio_path, model_dir):
     wavlm_processor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
     wavlm_model = AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
     
-    whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-small")
-    whisper_model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small").to(device).eval()
+    whisper_processor = WhisperProcessor.from_pretrained(asr_model)
+    whisper_model = WhisperForConditionalGeneration.from_pretrained(asr_model).to(device).eval()
     
     phobert_tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
     phobert_model = AutoModel.from_pretrained("vinai/phobert-base-v2").to(device).eval()
@@ -123,6 +123,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio_file', type=str, help="Path to single audio file")
     parser.add_argument('--model_dir', type=str, required=True)
+    parser.add_argument('--asr_model', type=str, default="vinai/PhoWhisper-large", help="ASR model to use (default: vinai/PhoWhisper-large)")
     parser.add_argument('--test_set', action='store_true', help="Evaluate on the full test set")
     args = parser.parse_args()
     
@@ -149,7 +150,7 @@ if __name__ == "__main__":
             if i % 10 == 0:
                 print(f"Processed {i}/{len(test_paths)}")
             try:
-                res = predict_emotion(p, args.model_dir)
+                res = predict_emotion(p, args.model_dir, asr_model=args.asr_model)
                 pred_emotion = max(res, key=res.get)
                 y_true.append(true_emotion)
                 y_pred.append(pred_emotion)
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         print(confusion_matrix(y_true, y_pred))
         
     elif args.audio_file:
-        result = predict_emotion(args.audio_file, args.model_dir)
+        result = predict_emotion(args.audio_file, args.model_dir, asr_model=args.asr_model)
         print(json.dumps(result))
     else:
         print("Please provide either --audio_file or --test_set")
