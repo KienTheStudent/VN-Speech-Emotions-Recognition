@@ -175,6 +175,7 @@ def validate_no_obsolete_refs():
     obsolete_patterns = [
         "sync_results.py",  # Old name, should reference sync_notebook.py or generate_report_figures.py
         "cryptographically secured",  # Overblown language from earlier drafts
+        "Whisper-tiny"  # Obsolete since we replaced it with Whisper-small for inferior ablation
     ]
 
     all_good = True
@@ -186,6 +187,30 @@ def validate_no_obsolete_refs():
     if all_good:
         print("[PASS] No obsolete references detected.")
     return all_good
+
+
+def validate_per_sample_predictions():
+    """Verify inference metadata artifact exists and is complete."""
+    preds_path = ROOT / "per_sample_predictions.json"
+    manifest_path = ROOT / "split_manifest.json"
+
+    if not preds_path.exists():
+        print(f"[FAIL] Inference metadata not found at {preds_path}")
+        return False
+
+    with open(preds_path, "r") as f:
+        preds = json.load(f)
+    
+    with open(manifest_path, "r") as f:
+        manifest = json.load(f)
+    
+    expected_len = len(manifest["test_indices"])
+    if len(preds) != expected_len:
+        print(f"[FAIL] Inference metadata count mismatch! Expected {expected_len}, got {len(preds)}")
+        return False
+        
+    print(f"[PASS] Inference metadata verified ({len(preds)} test samples).")
+    return True
 
 
 def main():
@@ -232,6 +257,10 @@ def main():
     # 6. Obsolete Reference Scan
     print("\n--- Scanning for Obsolete References ---")
     all_good &= validate_no_obsolete_refs()
+
+    # 7. Inference Metadata Scan
+    print("\n--- Validating Inference Metadata ---")
+    all_good &= validate_per_sample_predictions()
 
     # 7. Notebook Sync
     print("\n--- Validating Notebook ---")
