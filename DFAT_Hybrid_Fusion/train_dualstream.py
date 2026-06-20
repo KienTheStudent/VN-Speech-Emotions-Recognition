@@ -45,24 +45,31 @@ warnings.filterwarnings("ignore")
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 import os
+import argparse
 import sys
 # Removed sys.path logic to keep import topology clean
 
 from underthesea import word_tokenize as vi_word_tokenize
 
 MANIFEST_PATH = Path(__file__).parent.parent / "split_manifest.json"
-TRANSCRIPT_CACHE_FILE = Path(__file__).parent / "transcript_cache.json"
 
 
-def load_transcript_cache():
-    if TRANSCRIPT_CACHE_FILE.exists():
-        with open(TRANSCRIPT_CACHE_FILE, "r", encoding="utf-8") as f:
+def get_transcript_cache_file(asr_model):
+    safe_name = asr_model.replace("/", "_")
+    return Path(__file__).parent / f"transcript_cache_{safe_name}.json"
+
+
+def load_transcript_cache(asr_model):
+    cache_file = get_transcript_cache_file(asr_model)
+    if cache_file.exists():
+        with open(cache_file, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
-def save_transcript_cache(cache):
-    with open(TRANSCRIPT_CACHE_FILE, "w", encoding="utf-8") as f:
+def save_transcript_cache(cache, asr_model):
+    cache_file = get_transcript_cache_file(asr_model)
+    with open(cache_file, "w", encoding="utf-8") as f:
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
@@ -191,7 +198,7 @@ def extract_features_for_split(
         label_list.append(label)
 
     if (i + 1) % 200 == 0 or (i + 1) == len(paths):
-        save_transcript_cache(cache)
+        save_transcript_cache(cache, getattr(whisper_model.config, 'name_or_path', 'unknown_asr'))
 
     fused = np.concatenate([np.array(acoustic_list), np.array(textual_list)], axis=1)
     print(f"  [{split_name}] Valid samples: {len(label_list)} / {len(paths)}")
@@ -202,8 +209,13 @@ def extract_features_for_split(
 
 
 def main():
+    parser = argparse.ArgumentParser(description="DFAT Hybrid Fusion Training")
+    parser.add_argument("--asr_model", type=str, default="vinai/PhoWhisper-large", help="ASR model to use (default: vinai/PhoWhisper-large)")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("DFAT HYBRID FUSION — LEAK-FREE PROTOCOL")
+    print(f"ASR Model: {args.asr_model}")
     print("=" * 60)
 
     # ------------------------------------------------------------------
@@ -255,10 +267,10 @@ def main():
         AutoModel.from_pretrained("microsoft/wavlm-base-plus").to(device).eval()
     )
 
-    print("Loading Whisper (TEFE — ASR-derived)...")
-    whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-small")
+    print(f"Loading Whisper (TEFE — ASR-derived) [{args.asr_model}]...")
+    whisper_processor = WhisperProcessor.from_pretrained(args.asr_model)
     whisper_model = (
-        WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
+        WhisperForConditionalGeneration.from_pretrained(args.asr_model)
         .to(device)
         .eval()
     )
@@ -267,7 +279,7 @@ def main():
     phobert_tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base-v2")
     phobert_model = AutoModel.from_pretrained("vinai/phobert-base-v2").to(device).eval()
 
-    cache = load_transcript_cache()
+    cache = load_transcript_cache(args.asr_model)
 
     # ------------------------------------------------------------------
     # 4. Extract dual-stream features for all splits
