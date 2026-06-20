@@ -540,11 +540,11 @@ To prove the necessity of the proposed streams, we conducted a rigorous ablation
 \textbf{Configuration} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
 Acoustic-only (WavLM) & 0.4329 & 0.4278 & 0.4356 \\
-Linguistic-only (Whisper-small + PhoBERT) & 0.3364 & 0.3349 & 0.3447 \\
+Linguistic-only (PhoWhisper-large + PhoBERT) & 0.3364 & 0.3349 & 0.3447 \\
 Early Fusion (Concat 1536-d) & 0.3995 & 0.3937 & 0.3996 \\
 Late Fusion (stream-level) & 0.3408 & 0.3383 & 0.3655 \\
-Linguistic-only (Whisper-tiny + PhoBERT) & 0.2624 & 0.2512 & 0.2708 \\
-Early Fusion (Whisper-tiny) & 0.4044 & 0.3972 & 0.4072 \\
+Linguistic-only (Whisper-small + PhoBERT) & 0.2624 & 0.2512 & 0.2708 \\
+Early Fusion (Whisper-small) & 0.4044 & 0.3972 & 0.4072 \\
 Early Fusion + 10\% synthetic noise & 0.4280 & 0.4216 & 0.4299 \\
 Early Fusion + 20\% synthetic noise & 0.4242 & 0.4179 & 0.4280 \\
 Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\

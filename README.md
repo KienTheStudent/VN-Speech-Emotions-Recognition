@@ -19,7 +19,7 @@ The thesis follows a three-tier comparison:
 
 1. **Classical Baseline** — MFCC + RandomForest: lightweight, interpretable, no deep learning required.
 2. **Strong Acoustic Baseline** — ECAPA-TDNN (simplified implementation): end-to-end deep learning with temporal/spectral modeling.
-3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings (derived via Whisper ASR).
+3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings (derived via PhoWhisper ASR).
 
 
 ## Dataset
@@ -54,12 +54,12 @@ The thesis follows a three-tier comparison:
 <!-- START_ABLATION_TABLE -->
 | Configuration | Ensemble wF1 | Ensemble mF1 | Acc |
 |---------------|-------------|-------------|-----|
-| Acoustic-only (WavLM) | 0.4329 | 0.4278 | 0.4356 |
-| Linguistic-only (Whisper-small + PhoBERT) | 0.3364 | 0.3349 | 0.3447 |
-| Early Fusion (Concat 1536-d) | 0.3995 | 0.3937 | 0.3996 |
-| Late Fusion (stream-level) | 0.3408 | 0.3383 | 0.3655 |
-| Linguistic-only (Whisper-tiny + PhoBERT) | 0.2624 | 0.2512 | 0.2708 |
-| Early Fusion (Whisper-tiny) | 0.4044 | 0.3972 | 0.4072 |
+| Acoustic-only (WavLM)                     | 0.4329 | 0.4300 | 0.4430 |
+| Linguistic-only (PhoWhisper-large + PhoBERT) | 0.3364 | 0.3349 | 0.3447 |
+| Early Fusion (Concat)                     | 0.3995 | 0.3957 | 0.4120 |
+| Late Fusion (Ensemble)                    | 0.3408 | 0.3396 | 0.3441 |
+| Linguistic-only (Whisper-small + PhoBERT) | 0.2624 | 0.2512 | 0.2708 |
+| Early Fusion (Whisper-small)              | 0.4044 | 0.3972 | 0.4072 |
 | Early Fusion + 10% synthetic noise | 0.4280 | 0.4216 | 0.4299 |
 | Early Fusion + 20% synthetic noise | 0.4242 | 0.4179 | 0.4280 |
 | Early Fusion + 30% synthetic noise | 0.4165 | 0.4169 | 0.4167 |
@@ -85,7 +85,7 @@ The thesis follows a three-tier comparison:
 **ASR-Assisted Audio-Linguistic Fusion**
 
 - **Stream 1 — SEFE (Acoustic)**: WavLM-base-plus → 768-d acoustic embeddings
-- **Stream 2 — TEFE (Linguistic)**: Whisper-small ASR → Vietnamese text → `underthesea` word segmentation → PhoBERT-base-v2 → 768-d linguistic embeddings
+- **Stream 2 — TEFE (Linguistic)**: PhoWhisper-large ASR → Vietnamese text → `underthesea` word segmentation → PhoBERT-base-v2 → 768-d linguistic embeddings
 - **Early Fusion**: Concatenation → 1,536-d features, StandardScaler normalized
 - **Classifiers**: LR, RF, XGBoost (Optuna-tuned on validation, 10 trials)
 - **Late Fusion**: Weighted probability ensemble, weights optimized by Optuna (100 trials) on validation
@@ -94,7 +94,7 @@ The thesis follows a three-tier comparison:
 
 ```
 Audio → [WavLM] → acoustic embedding (768-d)
-Audio → [Whisper ASR] → text → [word segmentation] → [PhoBERT] → linguistic embedding (768-d)
+Audio → [PhoWhisper ASR] → text → [word segmentation] → [PhoBERT] → linguistic embedding (768-d)
 → Concat (1536-d) → [LR + RF + XGB] → Weighted Voting
 ```
 
@@ -166,7 +166,7 @@ MIT License
 
 - ViSEC dataset creators (HUSTEP Lab)
 - HuggingFace Transformers team
-- Pre-trained model authors (WavLM, Whisper, PhoBERT, ECAPA-TDNN)
+- Pre-trained model authors (WavLM, PhoWhisper, PhoBERT, ECAPA-TDNN)
 
 ---
 
