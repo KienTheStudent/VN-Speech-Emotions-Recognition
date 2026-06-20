@@ -181,7 +181,7 @@ To eliminate identity leakage, speakers are strictly partitioned. Figure~\ref{fi
     \label{fig:speaker_hist}
 \end{figure}
 
-Table~\ref{tab:class_dist} confirms that despite the greedy speaker-independent allocation, the relative class distribution remains stable across splits without severe degradation.
+Table~\ref{tab:class_dist} confirms that despite the greedy speaker-independent allocation, the relative class distribution remains stable across splits without severe degradation. Figure~\ref{fig:class_dist} visualizes this balance.
 
 \begin{table}[h]
 \centering
@@ -197,6 +197,13 @@ Test & 175 & 157 & 206 & 138 \\
 \caption{Class distribution across splits.}
 \label{tab:class_dist}
 \end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/class_distribution.png}
+    \caption{Class distribution across splits.}
+    \label{fig:class_dist}
+\end{figure}
 
 
 \section{Experimental Protocol}
@@ -291,7 +298,7 @@ Reproducibility is enforced through:
 \chapter{Results and Discussion}
 
 \section{Main Benchmark Results}
-The primary benchmark results on the integrity-checked test set are presented in Table~\ref{tab:benchmark}.
+The primary benchmark results on the integrity-checked test set are presented in Table~\ref{tab:benchmark} and visually summarized in Figure~\ref{fig:model_comp}.
 
 \begin{table}[h]
 \centering
@@ -309,6 +316,13 @@ The primary benchmark results on the integrity-checked test set are presented in
 \caption{Comparative benchmark on the held-out test set.}
 \label{tab:benchmark}
 \end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{report_images/model_comparison.png}
+    \caption{Main benchmark comparison (Weighted F1 score).}
+    \label{fig:model_comp}
+\end{figure}
 
 \textbf{Interpretation}: Under the current protocol, DFAT Late Fusion appears to be the most effective model, achieving a wF1 of 0.7176, which is an absolute gain of $+0.1039$ over the deep ECAPA-TDNN baseline and nearly double the performance of the classical MFCC+RF pipeline. The standard deviation ($\sigma=0.0094$) for the multi-seed RF indicates that the classical methods are highly sensitive to initialization variations, whereas deep representation learning offers substantially higher stability.
 
@@ -353,7 +367,7 @@ Sad     & 0.784 & 0.704 & 0.741 & 108 \\
 \textbf{What it means for Vietnamese SER}: Acoustic-only models are fundamentally limited by class overlap; thus, linguistic features are particularly critical for distinguishing subtle emotional states.
 
 \section{Error and Failure Analysis}
-Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}.
+Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}. The detailed confusion counts are presented in Figure~\ref{fig:confusion_matrices}.
 
 \begin{figure}[h]
     \centering
