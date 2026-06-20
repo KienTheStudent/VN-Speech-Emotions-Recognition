@@ -45,6 +45,87 @@ if BENCHMARK_RESULTS_PATH.exists():
 else:
     print("❌ benchmark_results_gpu.json not found. Run benchmark_methods_gpu.py first.")
     emotion_labels = ['angry', 'happy', 'neutral', 'sad']
+
+from typing import Any
+
+def run_script(script: Path, args: list[str]) -> tuple[int, str, str]:
+    import subprocess
+    cmd = [sys.executable, str(script), *args]
+    proc = subprocess.run(cmd, cwd=str(script.parent), capture_output=True, text=True)
+    return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+
+def extract_json_object(text: str) -> Any | None:
+    import re
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    candidates = re.findall(r"\\{.*\\}", text, flags=re.DOTALL)
+    for candidate in reversed(candidates):
+        try:
+            return json.loads(candidate)
+        except Exception:
+            continue
+    return None
+"""
+
+cell_eda = """# ==================== 1.5. EXPLORATORY DATA ANALYSIS (EDA) ====================
+from datasets import load_dataset
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+print("Loading dataset for EDA...")
+dataset = load_dataset("hustep-lab/ViSEC", split="train", trust_remote_code=True)
+df = dataset.to_pandas()
+
+# Load manifest to get splits
+manifest_path = ROOT_DIR / "split_manifest.json"
+if manifest_path.exists():
+    with open(manifest_path, "r") as f:
+        manifest = json.load(f)
+    
+    train_idx = manifest["train_indices"]
+    val_idx = manifest["val_indices"]
+    test_idx = manifest["test_indices"]
+
+    df['split'] = 'none'
+    df.loc[train_idx, 'split'] = 'train'
+    df.loc[val_idx, 'split'] = 'val'
+    df.loc[test_idx, 'split'] = 'test'
+else:
+    df['split'] = 'train'
+
+# 1. Class Distribution Plot
+plt.figure(figsize=(8, 4))
+sns.countplot(data=df, x='emotion', hue='split', order=['angry', 'happy', 'neutral', 'sad'], palette='muted')
+plt.title("Class Distribution across Splits")
+plt.ylabel("Sample Count")
+plt.xlabel("Emotion Class")
+plt.tight_layout()
+plt.show()
+
+# 2. Utterance Duration Plot
+plt.figure(figsize=(8, 4))
+sns.violinplot(data=df, x='emotion', y='duration', hue='emotion', palette='pastel', order=['angry', 'happy', 'neutral', 'sad'], legend=False)
+plt.title("Utterance Duration by Emotion Class")
+plt.ylabel("Duration (seconds)")
+plt.xlabel("Emotion Class")
+plt.tight_layout()
+plt.show()
+
+# 3. Speaker Split Audit
+speaker_counts = df.groupby(['speaker_id', 'split']).size().reset_index(name='count')
+plt.figure(figsize=(10, 4))
+sns.histplot(data=speaker_counts, x='count', hue='split', multiple='stack', bins=30, palette='muted')
+plt.title("Speaker Split Audit: Utterances per Speaker")
+plt.xlabel("Utterance Count")
+plt.ylabel("Speaker Count")
+plt.tight_layout()
+plt.show()
 """
 
 cell_viz = """# ==================== 2. CONFUSION MATRICES ====================
@@ -134,56 +215,77 @@ else:
 cell_demo = """# ==================== 5. LIVE INFERENCE DEMO ====================
 demo_audio = ROOT_DIR / "sample_visec.wav"
 
-if not Path(demo_audio).exists():
-    print(f"Demo file {demo_audio} not found. Please provide an audio file.")
-else:
-    print(f"Running Inference on {demo_audio}\\n")
+def try_predict_ecapa(audio_path: Path) -> Any | None:
+    script = ROOT_DIR / "ECAPA" / "predict_emotion.py"
+    model_dir = ROOT_DIR / "ECAPA" / "emotion_model"
+
+    if not script.exists():
+        print("ECAPA predict script not found.")
+        return None
+
+    rc, out, err = run_script(script, [str(audio_path), "--model_dir", str(model_dir)])
+    if rc != 0:
+        print("ECAPA script failed:")
+        print(err or out)
+        return None
+
+    parsed = extract_json_object(out)
+    print("ECAPA raw output:")
+    print(out)
+    return parsed if parsed is not None else out
+
+
+def try_predict_dfat(audio_path: Path) -> Any | None:
+    script = ROOT_DIR / "DFAT_Hybrid_Fusion" / "predict_dualstream.py"
+    model_dir = ROOT_DIR / "DFAT_Hybrid_Fusion" / "dualstream_model"
+
+    if not script.exists():
+        print("DFAT predict script not found.")
+        return None
+
+    rc, out, err = run_script(script, ["--audio_file", str(audio_path), "--model_dir", str(model_dir)])
+    if rc != 0:
+        print("DFAT script failed:")
+        print(err or out)
+        return None
+
+    parsed = extract_json_object(out)
+    print("DFAT raw output:")
+    print(out)
+    return parsed if parsed is not None else out
+
+
+if demo_audio.exists():
+    print(f"Sample audio: {demo_audio}")
     import IPython.display as ipd
     from IPython.display import display
     display(ipd.Audio(str(demo_audio)))
-
-    # ECAPA Inference
-    from ECAPA.predict_emotion import EmotionClassifier
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    num_labels = len(emotion_labels)
     
-    ecapa_model = EmotionClassifier(num_labels).to(device)
-    checkpoint_path = Path("ECAPA/emotion_model/best_ecapa_model.pth")
+    print("\\n--- Running ECAPA-TDNN Inference ---")
+    ecapa_pred = try_predict_ecapa(demo_audio)
     
-    if checkpoint_path.exists():
-        ecapa_model.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
-        ecapa_model.eval()
-        
-        audio, sr = librosa.load(demo_audio, sr=16000)
-        from transformers import AutoFeatureExtractor
-        processor = AutoFeatureExtractor.from_pretrained("microsoft/wavlm-base-plus")
-        inputs = processor(audio, sampling_rate=16000, return_tensors="pt")
-        features = inputs.input_values.to(device)
-        
-        with torch.no_grad():
-            outputs = ecapa_model(features)
-            probs = torch.softmax(outputs, dim=1)
-            pred_idx = torch.argmax(probs, dim=1).item()
-            conf = probs[0, pred_idx].item()
-            
-        print(f"\\n🎤 ECAPA-TDNN Predicted Emotion: **{emotion_labels[pred_idx].upper()}** (Confidence: {conf*100:.1f}%)")
-    else:
-        print("❌ Model checkpoint not found for inference.")
+    print("\\n--- Running DFAT Late Fusion Inference ---")
+    dfat_pred = try_predict_dfat(demo_audio)
+else:
+    print("sample_visec.wav is missing; skip demo inference.")
 """
 
 def split_lines(text):
-    return [line + "\\n" for line in text.split("\\n")]
+    return [line + "\n" for line in text.split("\n")]
 
 def generate_notebook():
     cells = [
         {"cell_type": "markdown", "metadata": {}, "source": split_lines(cell_intro)[:-1]},
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_setup)[:-1]},
-        {"cell_type": "markdown", "metadata": {}, "source": split_lines("## Results Summary\\n\\nBelow are the final evaluation outputs for our baseline and proposed models.")[:-1]},
+        {"cell_type": "markdown", "metadata": {}, "source": split_lines("## Exploratory Data Analysis\n\nBelow is the EDA of the ViSEC dataset including class distribution, utterance duration, and speaker split validation.")[:-1]},
+        {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_eda)[:-1]},
+        {"cell_type": "markdown", "metadata": {}, "source": split_lines("## Results Summary\n\nBelow are the final evaluation outputs for our baseline and proposed models.")[:-1]},
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_viz)[:-1]},
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_barchart)[:-1]},
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_ablation)[:-1]},
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_demo)[:-1]},
     ]
+
 
     nb = {
         "cells": cells,
