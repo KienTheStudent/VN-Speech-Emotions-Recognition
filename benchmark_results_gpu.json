@@ -22,102 +22,11 @@
   "primary_models": [
     "MFCC+RandomForest",
     "ECAPA-TDNN (simplified implementation)",
-    "DFAT Late Fusion"
+    "DFAT Hybrid Fusion"
   ],
   "ranked_results": [
     {
-      "method": "ECAPA-TDNN (simplified implementation)",
-      "n_seeds": 1,
-      "seeds": [
-        42
-      ],
-      "f1_weighted_mean": 0.6137022744639278,
-      "f1_weighted_std": 0.0,
-      "f1_macro_mean": 0.6130921871556501,
-      "f1_macro_std": 0.0,
-      "accuracy_mean": 0.6098484848484849,
-      "accuracy_std": 0.0,
-      "latency": {
-        "feature_extraction_ms_per_sample": null,
-        "classifier_ms_per_sample": null,
-        "end_to_end_ms_per_sample": null,
-        "latency_note": "N/A (GPU-bound, not comparable with CPU baselines)"
-      },
-      "representative_run": {
-        "seed": 42,
-        "f1_weighted": 0.6137022744639278,
-        "f1_macro": 0.6130921871556501,
-        "accuracy": 0.6098484848484849,
-        "classification_report": {
-          "angry": {
-            "precision": 0.7894736842105263,
-            "recall": 0.7142857142857143,
-            "f1-score": 0.75,
-            "support": 147.0
-          },
-          "happy": {
-            "precision": 0.5163398692810458,
-            "recall": 0.6422764227642277,
-            "f1-score": 0.572463768115942,
-            "support": 123.0
-          },
-          "neutral": {
-            "precision": 0.4968152866242038,
-            "recall": 0.52,
-            "f1-score": 0.50814332247557,
-            "support": 150.0
-          },
-          "sad": {
-            "precision": 0.7058823529411765,
-            "recall": 0.5555555555555556,
-            "f1-score": 0.6217616580310881,
-            "support": 108.0
-          },
-          "accuracy": 0.6098484848484849,
-          "macro avg": {
-            "precision": 0.6271277982642381,
-            "recall": 0.6080294231513743,
-            "f1-score": 0.6130921871556501,
-            "support": 528.0
-          },
-          "weighted avg": {
-            "precision": 0.6256061034314274,
-            "recall": 0.6098484848484849,
-            "f1-score": 0.6137022744639278,
-            "support": 528.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            105,
-            17,
-            18,
-            7
-          ],
-          [
-            11,
-            79,
-            29,
-            4
-          ],
-          [
-            13,
-            45,
-            78,
-            14
-          ],
-          [
-            4,
-            12,
-            32,
-            60
-          ]
-        ]
-      },
-      "note": "Results from metadata.json"
-    },
-    {
-      "method": "DFAT Late Fusion",
+      "method": "DFAT Hybrid Fusion",
       "n_seeds": 5,
       "seeds": [
         42,
@@ -126,12 +35,114 @@
         789,
         2026
       ],
-      "f1_weighted_mean": 0.5086879875938084,
-      "f1_weighted_std": 0.01166733349300875,
-      "f1_macro_mean": 0.504944770829351,
-      "f1_macro_std": 0.012249982913250593,
-      "accuracy_mean": 0.5091715976331361,
-      "accuracy_std": 0.011959398184264943,
+      "f1_weighted_mean": 0.48972724519932853,
+      "f1_weighted_std": 0.01217036813110782,
+      "f1_macro_mean": 0.4840531192319931,
+      "f1_macro_std": 0.013371531321072218,
+      "accuracy_mean": 0.49289940828402373,
+      "accuracy_std": 0.011511879561150126,
+      "latency": {
+        "feature_extraction_ms_per_sample": null,
+        "classifier_ms_per_sample": null,
+        "end_to_end_ms_per_sample": null,
+        "latency_note": "N/A (GPU-bound, not comparable with CPU baselines)"
+      },
+      "representative_run": {
+        "seed": 789,
+        "f1_weighted": 0.48217146830451846,
+        "f1_macro": 0.47356749041675794,
+        "accuracy": 0.4881656804733728,
+        "xgboost_best_params": {
+          "max_depth": 9,
+          "learning_rate": 0.1551383417438993,
+          "n_estimators": 278,
+          "subsample": 0.7973133231006544,
+          "colsample_bytree": 0.9407457989002836
+        },
+        "classification_report": {
+          "angry": {
+            "precision": 0.6071428571428571,
+            "recall": 0.5828571428571429,
+            "f1-score": 0.5947521865889213,
+            "support": 175.0
+          },
+          "happy": {
+            "precision": 0.4957983193277311,
+            "recall": 0.37579617834394907,
+            "f1-score": 0.427536231884058,
+            "support": 157.0
+          },
+          "neutral": {
+            "precision": 0.4315068493150685,
+            "recall": 0.6116504854368932,
+            "f1-score": 0.5060240963855421,
+            "support": 206.0
+          },
+          "sad": {
+            "precision": 0.44329896907216493,
+            "recall": 0.3115942028985507,
+            "f1-score": 0.3659574468085106,
+            "support": 138.0
+          },
+          "accuracy": 0.4881656804733728,
+          "macro avg": {
+            "precision": 0.4944367487144554,
+            "recall": 0.47047450238413396,
+            "f1-score": 0.47356749041675794,
+            "support": 676.0
+          },
+          "weighted avg": {
+            "precision": 0.494313616605498,
+            "recall": 0.4881656804733728,
+            "f1-score": 0.48217146830451846,
+            "support": 676.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            102,
+            9,
+            49,
+            15
+          ],
+          [
+            20,
+            59,
+            65,
+            13
+          ],
+          [
+            23,
+            31,
+            126,
+            26
+          ],
+          [
+            23,
+            20,
+            52,
+            43
+          ]
+        ]
+      },
+      "note": "Results from metadata.json"
+    },
+    {
+      "method": "ECAPA-TDNN (simplified implementation)",
+      "n_seeds": 5,
+      "seeds": [
+        42,
+        123,
+        456,
+        789,
+        2026
+      ],
+      "f1_weighted_mean": 0.4124806531623874,
+      "f1_weighted_std": 0.017053339176552523,
+      "f1_macro_mean": 0.4122330118490359,
+      "f1_macro_std": 0.01518499404870769,
+      "accuracy_mean": 0.4112426035502958,
+      "accuracy_std": 0.016969976804378676,
       "latency": {
         "feature_extraction_ms_per_sample": null,
         "classifier_ms_per_sample": null,
@@ -140,86 +151,73 @@
       },
       "representative_run": {
         "seed": 2026,
-        "f1_weighted": 0.5132219525778455,
-        "f1_macro": 0.5108451172813702,
-        "accuracy": 0.5133136094674556,
-        "ensemble_weights": {
-          "xgb": 0.3785853780408048,
-          "rf": 0.49637987379654347,
-          "lr": 0.12503474816265175
-        },
-        "xgboost_best_params": {
-          "max_depth": 7,
-          "learning_rate": 0.182214965829454,
-          "n_estimators": 116,
-          "min_child_weight": 6,
-          "subsample": 0.6593901900403203,
-          "colsample_bytree": 0.7397538550086068,
-          "gamma": 0.21508797997112605
-        },
+        "f1_weighted": 0.411100197721114,
+        "f1_macro": 0.4138464769204079,
+        "accuracy": 0.41420118343195267,
+        "best_val_f1": 0.4735248634497966,
         "classification_report": {
           "angry": {
-            "precision": 0.6060606060606061,
-            "recall": 0.5714285714285714,
-            "f1-score": 0.5882352941176471,
+            "precision": 0.4947916666666667,
+            "recall": 0.5428571428571428,
+            "f1-score": 0.5177111716621253,
             "support": 175.0
           },
           "happy": {
-            "precision": 0.5289855072463768,
-            "recall": 0.46496815286624205,
-            "f1-score": 0.49491525423728816,
+            "precision": 0.31683168316831684,
+            "recall": 0.40764331210191085,
+            "f1-score": 0.3565459610027855,
             "support": 157.0
           },
           "neutral": {
-            "precision": 0.44150943396226416,
-            "recall": 0.5679611650485437,
-            "f1-score": 0.4968152866242038,
+            "precision": 0.43703703703703706,
+            "recall": 0.28640776699029125,
+            "f1-score": 0.3460410557184751,
             "support": 206.0
           },
           "sad": {
-            "precision": 0.5277777777777778,
-            "recall": 0.41304347826086957,
-            "f1-score": 0.4634146341463415,
+            "precision": 0.4217687074829932,
+            "recall": 0.4492753623188406,
+            "f1-score": 0.43508771929824563,
             "support": 138.0
           },
-          "accuracy": 0.5133136094674556,
+          "accuracy": 0.41420118343195267,
           "macro avg": {
-            "precision": 0.5260833312617562,
-            "recall": 0.5043503419010567,
-            "f1-score": 0.5108451172813702,
+            "precision": 0.41760727358875344,
+            "recall": 0.42154589606704634,
+            "f1-score": 0.4138464769204079,
             "support": 676.0
           },
           "weighted avg": {
-            "precision": 0.5220349222305428,
-            "recall": 0.5133136094674556,
-            "f1-score": 0.5132219525778455,
+            "precision": 0.4209538863703774,
+            "recall": 0.41420118343195267,
+            "f1-score": 0.411100197721114,
             "support": 676.0
           }
         },
         "confusion_matrix": [
           [
-            100,
-            15,
-            51,
-            9
-          ],
-          [
-            18,
-            73,
-            52,
-            14
-          ],
-          [
+            95,
+            35,
             27,
-            34,
-            117,
-            28
+            18
           ],
           [
-            20,
+            35,
+            64,
+            33,
+            25
+          ],
+          [
+            37,
+            68,
+            59,
+            42
+          ],
+          [
+            25,
+            35,
             16,
-            45,
-            57
+            62
           ]
         ]
       },
@@ -243,9 +241,9 @@
       "accuracy_mean": 0.3715976331360947,
       "accuracy_std": 0.0021741033219969145,
       "latency": {
-        "feature_extraction_ms_per_sample": 2.5993,
-        "classifier_ms_per_sample": 0.0188,
-        "end_to_end_ms_per_sample": 2.6181,
+        "feature_extraction_ms_per_sample": 2.6343,
+        "classifier_ms_per_sample": 0.0227,
+        "end_to_end_ms_per_sample": 2.6569,
         "latency_note": "End-to-End latency is comparable across baselines. Feature-extraction is CPU-bound."
       },
       "representative_run": {
@@ -253,7 +251,7 @@
         "f1_weighted": 0.35125883974418504,
         "f1_macro": 0.3378610547471884,
         "accuracy": 0.3698224852071006,
-        "classifier_ms_per_sample": 0.0193,
+        "classifier_ms_per_sample": 0.0198,
         "classification_report": {
           "angry": {
             "precision": 0.392,
@@ -322,6 +320,6 @@
       }
     }
   ],
-  "global_best_method": "ECAPA-TDNN (simplified implementation)",
-  "primary_best_method": "ECAPA-TDNN (simplified implementation)"
+  "global_best_method": "DFAT Hybrid Fusion",
+  "primary_best_method": "DFAT Hybrid Fusion"
 }

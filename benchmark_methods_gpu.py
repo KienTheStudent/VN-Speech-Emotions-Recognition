@@ -5,7 +5,7 @@ Evaluates:
   PRIMARY BASELINES (in main thesis body):
     1. MFCC + RandomForest
     2. ECAPA-TDNN           (results read from ECAPA/emotion_model/metadata.json)
-    3. DFAT Late Fusion     (results read from DFAT_Hybrid_Fusion/dualstream_model/metadata.json)
+    3. DFAT Hybrid Fusion   (results read from DFAT_Hybrid_Fusion/dualstream_model/metadata.json)
 
 Methodology fixes:
   - Deep methods are run ONCE.
@@ -128,12 +128,12 @@ def main():
     e_res = read_deep_model(ECAPA_METADATA, "ECAPA-TDNN (simplified implementation)", "N/A (GPU-bound, not comparable with CPU baselines)", manifest_checksum)
     if e_res: results.append(e_res)
     
-    d_res = read_deep_model(DFAT_METADATA, "DFAT Late Fusion", "N/A (GPU-bound, not comparable with CPU baselines)", manifest_checksum)
+    d_res = read_deep_model(DFAT_METADATA, "DFAT Hybrid Fusion", "N/A (GPU-bound, not comparable with CPU baselines)", manifest_checksum)
     if d_res: results.append(d_res)
 
     # 5. Rank and save
     ranked = sorted(results, key=lambda x: x["f1_weighted_mean"], reverse=True)
-    primary_models_list = ["MFCC+RandomForest", "ECAPA-TDNN (simplified implementation)", "DFAT Late Fusion"]
+    primary_models_list = ["MFCC+RandomForest", "ECAPA-TDNN (simplified implementation)", "DFAT Hybrid Fusion"]
 
     global_best = ranked[0]["method"] if ranked else None
     primary_ranked = [r for r in ranked if r["method"] in primary_models_list]
