@@ -132,7 +132,7 @@ plt.close(fig)
 
 # ── Plot 6: Per-class F1 Comparison ──────────────────────────────────────────
 print("  [6/11] Per-class F1 comparison...")
-ecapa_report = next(r for r in ranked if r["method"] == "ECAPA-TDNN")["representative_run"]["classification_report"]
+ecapa_report = next(r for r in ranked if r["method"].startswith("ECAPA-TDNN"))["representative_run"]["classification_report"]
 dfat_report = next(r for r in ranked if r["method"] == "DFAT Late Fusion")["representative_run"]["classification_report"]
 
 ecapa_f1 = [ecapa_report[e]["f1-score"] for e in EMOTION_ORDER]
@@ -155,7 +155,7 @@ plt.close(fig)
 
 # ── Plot 7: Confusion Matrices ───────────────────────────────────────────────
 print("  [7/11] Confusion matrices...")
-for model_name, key in [("ECAPA-TDNN", "ecapa"), ("DFAT Late Fusion", "dfat")]:
+for model_name, key in [("ECAPA-TDNN (simplified implementation)", "ecapa"), ("DFAT Late Fusion", "dfat")]:
     result = next(r for r in ranked if r["method"] == model_name)
     cm = np.array(result["representative_run"]["confusion_matrix"])
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -208,7 +208,7 @@ plt.close(fig)
 print("  [10/11] Seed stability plot...")
 # RF has 5-seed data; ECAPA and DFAT have 1 seed each (no variance to plot)
 rf_result = next(r for r in ranked if r["method"] == "MFCC+RandomForest")
-ecapa_result = next(r for r in ranked if r["method"] == "ECAPA-TDNN")
+ecapa_result = next(r for r in ranked if r["method"].startswith("ECAPA-TDNN"))
 dfat_result = next(r for r in ranked if r["method"] == "DFAT Late Fusion")
 
 model_names = ["MFCC+RF", "ECAPA-TDNN", "DFAT Late"]

@@ -37,10 +37,16 @@ from DFAT_Hybrid_Fusion.predict_dualstream import (
 )
 
 
-def load_audio(audio_path, sr=16000):
+def load_audio(path_dict, sr=16000):
     try:
-        audio, _ = librosa.load(audio_path, sr=sr)
-        if audio is None or len(audio) == 0:
+        import io
+        if isinstance(path_dict, dict) and "bytes" in path_dict:
+            audio, _ = librosa.load(io.BytesIO(path_dict["bytes"]), sr=sr)
+        elif isinstance(path_dict, str):
+            audio, _ = librosa.load(path_dict, sr=sr)
+        elif isinstance(path_dict, dict) and "path" in path_dict:
+            audio, _ = librosa.load(path_dict["path"], sr=sr)
+        else:
             return None
         return audio
     except Exception:
@@ -58,7 +64,7 @@ def main():
         metadata = json.load(f)
 
     emotion_labels = metadata["emotion_labels"]
-    weights = metadata["ensemble_weights"]
+    weights = metadata["representative_run"]["ensemble_weights"]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
