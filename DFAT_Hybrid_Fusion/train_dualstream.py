@@ -2,13 +2,13 @@
 """
 DFAT Hybrid Fusion Training — Leak-Free Protocol.
 
-Dual-stream Feature Aggregation with Acoustic (WavLM) and
-ASR-derived Linguistic (Whisper encoder) features.
+Single-axis architecture: Raw concat (WavLM + PhoBERT) → XGBoost.
+Hard invalid-text fallback: if ASR transcript is empty/failed, the
+linguistic stream is zeroed out (acoustic-only fallback).
 
 Reads the fixed Train/Val/Test split from split_manifest.json.
-- Train set: used for fitting classifiers.
-- Val set: used for Optuna hyperparameter tuning (XGBoost) and
-  ensemble weight optimization (Late Fusion).
+- Train set: used for fitting the XGBoost classifier.
+- Val set: used for Optuna hyperparameter tuning.
 - Test set: evaluated exactly ONCE at the end for final reporting.
 """
 
@@ -23,8 +23,6 @@ import optuna
 from optuna.samplers import TPESampler
 import torch
 from datasets import load_dataset
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -44,10 +42,7 @@ from xgboost import XGBClassifier
 warnings.filterwarnings("ignore")
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-import os
 import argparse
-import sys
-# Removed sys.path logic to keep import topology clean
 
 from underthesea import word_tokenize as vi_word_tokenize
 
@@ -177,8 +172,14 @@ def extract_features_for_split(
     split_name,
     cache,
 ):
-    """Extract dual-stream features for a given split."""
+    """Extract dual-stream features for a given split.
+
+    Hard invalid-text fallback: if the ASR transcript is empty or
+    decode failed, the textual embedding is zeroed out (the model
+    falls back to acoustic-only for that sample).
+    """
     acoustic_list, textual_list, label_list = [], [], []
+
     for i, (path, label) in enumerate(zip(paths, labels)):
         if i % 200 == 0:
             print(f"  [{split_name}] {i}/{len(paths)}")
@@ -192,6 +193,12 @@ def extract_features_for_split(
         textual = extract_textual_features(
             text, phobert_model, phobert_tokenizer, device
         )
+
+        # Hard invalid-text fallback:
+        # valid transcript → weight = 1, invalid/empty → weight = 0
+        words = segment_text(text).split()
+        if len(words) == 0:
+            textual = np.zeros(768, dtype=np.float32)
 
         acoustic_list.append(acoustic)
         textual_list.append(textual)
@@ -211,11 +218,13 @@ def extract_features_for_split(
 def main():
     parser = argparse.ArgumentParser(description="DFAT Hybrid Fusion Training")
     parser.add_argument("--asr_model", type=str, default="vinai/PhoWhisper-large", help="ASR model to use (default: vinai/PhoWhisper-large)")
+    parser.add_argument("--use_scaler", action="store_true", help="Enable per-stream StandardScaler normalization (ablation)")
     args = parser.parse_args()
 
     print("=" * 60)
-    print("DFAT HYBRID FUSION — LEAK-FREE PROTOCOL")
+    print("DFAT HYBRID FUSION — SINGLE-AXIS PROTOCOL")
     print(f"ASR Model: {args.asr_model}")
+    print(f"Per-Stream Scaler: {args.use_scaler}")
     print("=" * 60)
 
     # ------------------------------------------------------------------
@@ -286,43 +295,25 @@ def main():
     # ------------------------------------------------------------------
     print("\nExtracting dual-stream features...")
     train_fused, train_labels = extract_features_for_split(
-        train_paths,
-        train_labels_raw,
-        wavlm_model,
-        wavlm_processor,
-        whisper_model,
-        whisper_processor,
-        phobert_model,
-        phobert_tokenizer,
-        device,
-        "Train",
-        cache,
+        train_paths, train_labels_raw,
+        wavlm_model, wavlm_processor,
+        whisper_model, whisper_processor,
+        phobert_model, phobert_tokenizer,
+        device, "Train", cache,
     )
     val_fused, val_labels = extract_features_for_split(
-        val_paths,
-        val_labels_raw,
-        wavlm_model,
-        wavlm_processor,
-        whisper_model,
-        whisper_processor,
-        phobert_model,
-        phobert_tokenizer,
-        device,
-        "Val",
-        cache,
+        val_paths, val_labels_raw,
+        wavlm_model, wavlm_processor,
+        whisper_model, whisper_processor,
+        phobert_model, phobert_tokenizer,
+        device, "Val", cache,
     )
     test_fused, test_labels = extract_features_for_split(
-        test_paths,
-        test_labels_raw,
-        wavlm_model,
-        wavlm_processor,
-        whisper_model,
-        whisper_processor,
-        phobert_model,
-        phobert_tokenizer,
-        device,
-        "Test",
-        cache,
+        test_paths, test_labels_raw,
+        wavlm_model, wavlm_processor,
+        whisper_model, whisper_processor,
+        phobert_model, phobert_tokenizer,
+        device, "Test", cache,
     )
 
     print(f"\nFeatures extracted:")
@@ -335,18 +326,28 @@ def main():
     torch.cuda.empty_cache()
 
     # ------------------------------------------------------------------
-    # 5. Normalize features
+    # 5. Optional: Per-Stream Normalization (ablation toggle)
     # ------------------------------------------------------------------
-    scaler = StandardScaler()
-    train_fused = scaler.fit_transform(train_fused)
-    val_fused = scaler.transform(val_fused)
-    test_fused = scaler.transform(test_fused)
+    scaler = None
+    if args.use_scaler:
+        print("\nApplying Per-Stream StandardScaler...")
+        scaler_ac = StandardScaler()
+        scaler_tx = StandardScaler()
+        train_fused[:, :768] = scaler_ac.fit_transform(train_fused[:, :768])
+        train_fused[:, 768:] = scaler_tx.fit_transform(train_fused[:, 768:])
+        val_fused[:, :768] = scaler_ac.transform(val_fused[:, :768])
+        val_fused[:, 768:] = scaler_tx.transform(val_fused[:, 768:])
+        test_fused[:, :768] = scaler_ac.transform(test_fused[:, :768])
+        test_fused[:, 768:] = scaler_tx.transform(test_fused[:, 768:])
+        scaler = {"ac": scaler_ac, "tx": scaler_tx}
+    else:
+        print("\nUsing Raw Concat (no scaling).")
 
     # ------------------------------------------------------------------
-    # 6. Train base classifiers on TRAIN set only (5 seeds)
+    # 6. Train XGBoost with Optuna tuning (5 seeds)
     # ------------------------------------------------------------------
     print("\n" + "=" * 60)
-    print("TRAINING CLASSIFIERS (5 Seeds)")
+    print("TRAINING XGBoost (5 Seeds, Optuna Tuning)")
     print("=" * 60)
 
     seeds = [42, 123, 456, 789, 2026]
@@ -354,22 +355,14 @@ def main():
 
     for seed in seeds:
         print(f"\n--- SEED {seed} ---")
-        
-        lr_model = LogisticRegression(max_iter=1000, random_state=seed)
-        lr_model.fit(train_fused, train_labels)
-
-        rf_model = RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)
-        rf_model.fit(train_fused, train_labels)
 
         def xgb_objective(trial):
             params = {
                 "max_depth": trial.suggest_int("max_depth", 3, 10),
                 "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
                 "n_estimators": trial.suggest_int("n_estimators", 50, 300),
-                "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
                 "subsample": trial.suggest_float("subsample", 0.6, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "gamma": trial.suggest_float("gamma", 0, 0.5),
                 "random_state": seed,
             }
             model = XGBClassifier(**params, eval_metric="mlogloss")
@@ -378,95 +371,75 @@ def main():
             return f1_score(val_labels, pred, average="weighted")
 
         study = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
-        study.optimize(xgb_objective, n_trials=50, show_progress_bar=False)
+        study.optimize(xgb_objective, n_trials=30, show_progress_bar=False)
 
+        print(f"    Best Val wF1: {study.best_value:.4f}")
+        print(f"    Best params: {study.best_params}")
+
+        # Train final model with best params on full train set
         xgb_model = XGBClassifier(**study.best_params, eval_metric="mlogloss")
         xgb_model.fit(train_fused, train_labels)
 
-        # Ensemble
-        lr_val_proba = lr_model.predict_proba(val_fused)
-        rf_val_proba = rf_model.predict_proba(val_fused)
-        xgb_val_proba = xgb_model.predict_proba(val_fused)
+        # Evaluate on test (exactly once)
+        test_pred = xgb_model.predict(test_fused)
 
-        def ensemble_objective(trial):
-            w1 = trial.suggest_float("w1", 0, 1)
-            w2 = trial.suggest_float("w2", 0, 1)
-            w3 = trial.suggest_float("w3", 0, 1)
-            total = w1 + w2 + w3
-            if total == 0:
-                return 0.0
-            ensemble_proba = (
-                (w1 / total) * xgb_val_proba
-                + (w2 / total) * rf_val_proba
-                + (w3 / total) * lr_val_proba
-            )
-            ensemble_pred = np.argmax(ensemble_proba, axis=1)
-            return f1_score(val_labels, ensemble_pred, average="weighted")
+        test_f1_weighted = f1_score(test_labels, test_pred, average="weighted")
+        test_f1_macro = f1_score(test_labels, test_pred, average="macro")
+        test_acc = accuracy_score(test_labels, test_pred)
 
-        study2 = optuna.create_study(direction="maximize", sampler=TPESampler(seed=seed))
-        study2.optimize(ensemble_objective, n_trials=50, show_progress_bar=False)
-
-        w1, w2, w3 = study2.best_params["w1"], study2.best_params["w2"], study2.best_params["w3"]
-        total = w1 + w2 + w3
-        w_xgb, w_rf, w_lr = w1 / total, w2 / total, w3 / total
-
-        # Evaluate on test
-        lr_test_proba = lr_model.predict_proba(test_fused)
-        rf_test_proba = rf_model.predict_proba(test_fused)
-        xgb_test_proba = xgb_model.predict_proba(test_fused)
-
-        ensemble_test_proba = (w_xgb * xgb_test_proba + w_rf * rf_test_proba + w_lr * lr_test_proba)
-        ensemble_test_pred = np.argmax(ensemble_test_proba, axis=1)
-
-        test_f1_weighted = f1_score(test_labels, ensemble_test_pred, average="weighted")
-        test_f1_macro = f1_score(test_labels, ensemble_test_pred, average="macro")
-        test_acc = accuracy_score(test_labels, ensemble_test_pred)
-
-        report_dict = classification_report(test_labels, ensemble_test_pred, target_names=emotion_labels, output_dict=True)
-        cm = confusion_matrix(test_labels, ensemble_test_pred).tolist()
+        report_dict = classification_report(test_labels, test_pred, target_names=emotion_labels, output_dict=True)
+        cm = confusion_matrix(test_labels, test_pred).tolist()
 
         run_data = {
             "seed": seed,
             "f1_weighted": float(test_f1_weighted),
             "f1_macro": float(test_f1_macro),
             "accuracy": float(test_acc),
-            "ensemble_weights": {"xgb": float(w_xgb), "rf": float(w_rf), "lr": float(w_lr)},
             "xgboost_best_params": study.best_params,
             "classification_report": report_dict,
             "confusion_matrix": cm,
-            "models": (lr_model, rf_model, xgb_model)
+            "model": xgb_model,
         }
         runs.append(run_data)
         print(f"  -> Seed {seed} Test wF1: {test_f1_weighted:.4f}")
 
-    # Calculate stats
+    # ------------------------------------------------------------------
+    # 7. Aggregate results and save
+    # ------------------------------------------------------------------
     wf1s = [r["f1_weighted"] for r in runs]
     mf1s = [r["f1_macro"] for r in runs]
     accs = [r["accuracy"] for r in runs]
 
     median_idx = int(np.argsort(wf1s)[len(wf1s) // 2])
     representative = runs[median_idx]
-    
-    # Save representative models
-    lr_model, rf_model, xgb_model = representative.pop("models")
+
+    # Save representative model
+    xgb_model = representative.pop("model")
     for r in runs:
-        if "models" in r:
-            del r["models"]
+        if "model" in r:
+            del r["model"]
 
     output_dir = Path(__file__).parent / "dualstream_model"
     output_dir.mkdir(exist_ok=True)
 
-    with open(output_dir / "lr_model.pkl", "wb") as f:
-        pickle.dump(lr_model, f)
-    with open(output_dir / "rf_model.pkl", "wb") as f:
-        pickle.dump(rf_model, f)
     with open(output_dir / "xgb_model.pkl", "wb") as f:
         pickle.dump(xgb_model, f)
-    with open(output_dir / "scaler.pkl", "wb") as f:
-        pickle.dump(scaler, f)
+
+    if scaler is not None:
+        with open(output_dir / "scaler.pkl", "wb") as f:
+            pickle.dump(scaler, f)
+    else:
+        (output_dir / "scaler.pkl").unlink(missing_ok=True)
+
+    # Clean up old model files from previous architecture
+    for old_file in ["lr_model.pkl", "rf_model.pkl", "meta_model.pkl"]:
+        (output_dir / old_file).unlink(missing_ok=True)
 
     metadata = {
-        "protocol": "Leak-free: Val for Optuna tuning & ensemble weights, Test evaluated once, 5-seed repeated",
+        "protocol": "Leak-free: Single XGBoost, Val for Optuna tuning, Test evaluated once, 5-seed repeated",
+        "architecture": "Raw concat (WavLM 768-d + PhoBERT 768-d) → XGBoost",
+        "text_gate": "Hard invalid-text fallback (empty transcript → zero vector)",
+        "scaler": "per-stream" if args.use_scaler else "none",
         "split_source": "split_manifest.json",
         "emotion_labels": emotion_labels,
         "split_checksum": split_checksum,
@@ -478,7 +451,7 @@ def main():
         "test_f1_weighted_std": float(np.std(wf1s)),
         "test_f1_macro_mean": float(np.mean(mf1s)),
         "test_f1_macro_std": float(np.std(mf1s)),
-        "representative_run": representative
+        "representative_run": representative,
     }
     with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
