@@ -19,7 +19,7 @@ The thesis follows a three-tier comparison:
 
 1. **Classical Baseline** — MFCC + RandomForest: lightweight, interpretable, no deep learning required.
 2. **Strong Acoustic Baseline** — ECAPA-TDNN (simplified implementation): end-to-end deep learning with temporal/spectral modeling.
-3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings (derived via PhoWhisper ASR).
+3. **Proposed Method** — DFAT Hybrid Fusion: ASR-assisted audio-linguistic fusion combining WavLM acoustic embeddings with PhoBERT linguistic embeddings via hard invalid-text fallback and a single XGBoost classifier.
 
 
 ## Dataset
@@ -42,30 +42,20 @@ The thesis follows a three-tier comparison:
 ### Main Benchmark
 
 <!-- START_BENCHMARK_TABLE -->
-| Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
-|--------|----------|------------------|-----|-----|-------------|
-| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.6137 | 0.6131 | 0.6098 | — |
-| **DFAT Late Fusion** | **Primary** | 0.5087 ± 0.0117 | 0.5049 | 0.5092 | — |
-| **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 | — |
+| Method | Category | wF1 (mean ± std) | mF1 | Acc |
+|--------|----------|------------------|-----|-----|
+| **DFAT Hybrid Fusion (Proposed)** | **Primary** | 0.4897 ± 0.0122 | 0.4841 | 0.4929 |
+| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.4125 ± 0.0171 | 0.4122 | 0.4112 |
+| **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 |
 <!-- END_BENCHMARK_TABLE -->
 
 ### DFAT Ablation Study
 
 <!-- START_ABLATION_TABLE -->
-| Configuration | Ensemble wF1 | Ensemble mF1 | Acc |
-|---------------|-------------|-------------|-----|
-| Acoustic-only (WavLM) | 0.4918 | 0.4887 | 0.4896 |
-| Linguistic-only (vinai/PhoWhisper-large + PhoBERT) | 0.3953 | 0.3942 | 0.3964 |
-| Early Fusion (Concat 1536-d) | 0.5080 | 0.5023 | 0.5104 |
-| Early Fusion (No StandardScaler) | 0.5238 | 0.5203 | 0.5237 |
-| Early Fusion (No Optuna tuning) | 0.4982 | 0.4916 | 0.5030 |
-| Early Fusion (No word segmentation) | 0.4947 | 0.4912 | 0.4956 |
-| Late Fusion (stream-level) | 0.4365 | 0.4259 | 0.4586 |
-| Linguistic-only (openai/whisper-small + PhoBERT) | 0.3517 | 0.3471 | 0.3609 |
-| Early Fusion (openai/whisper-small) | 0.4716 | 0.4641 | 0.4749 |
-| Early Fusion + 10% synthetic noise | 0.4934 | 0.4881 | 0.4941 |
-| Early Fusion + 20% synthetic noise | 0.4863 | 0.4798 | 0.4882 |
-| Early Fusion + 30% synthetic noise | 0.4941 | 0.4920 | 0.4941 |
+| Configuration | wF1 | mF1 | Acc |
+|---------------|-----|-----|-----|
+| Phase 1: Raw Concat (No Scaler) | 0.4913 | 0.4852 | 0.4938 |
+| Phase 2: Per-Stream Scaler | 0.4897 | 0.4841 | 0.4929 |
 <!-- END_ABLATION_TABLE -->
 
 ## Methods
@@ -85,20 +75,20 @@ The thesis follows a three-tier comparison:
 
 ### 3. DFAT Hybrid Fusion (Proposed Method)
 
-**ASR-Assisted Audio-Linguistic Fusion**
+**ASR-Assisted Audio-Linguistic Fusion (Single-Axis Protocol)**
 
 - **Stream 1 — SEFE (Acoustic)**: WavLM-base-plus → 768-d acoustic embeddings
 - **Stream 2 — TEFE (Linguistic)**: PhoWhisper-large ASR → Vietnamese text → `underthesea` word segmentation → PhoBERT-base-v2 → 768-d linguistic embeddings
-- **Early Fusion**: Concatenation → 1,536-d features, StandardScaler normalized
-- **Classifiers**: LR, RF, XGBoost (Optuna-tuned on validation, 10 trials)
-- **Late Fusion**: Weighted probability ensemble, weights optimized by Optuna (100 trials) on validation
+- **Hard Invalid-Text Fallback**: If the ASR transcript is empty or fails, the linguistic embedding is zeroed out (automatically falling back to acoustic-only).
+- **Early Fusion**: Concatenation → 1,536-d features (optional Per-Stream StandardScaler).
+- **Classifier**: Single XGBoost classifier, Optuna-tuned (5 core hyperparameters, 30 trials) on a speaker-aware validation split.
 
 > **Note**: The linguistic stream is derived from ASR transcription of the *same audio signal*, not from an independent text source. We therefore characterize this as **ASR-assisted audio-linguistic fusion** rather than true multimodal learning.
 
 ```
 Audio → [WavLM] → acoustic embedding (768-d)
 Audio → [PhoWhisper ASR] → text → [word segmentation] → [PhoBERT] → linguistic embedding (768-d)
-→ Concat (1536-d) → [LR + RF + XGB] → Weighted Voting
+→ Concat (1536-d) → [XGBoost] → Emotion Label
 ```
 
 ## Repository Structure

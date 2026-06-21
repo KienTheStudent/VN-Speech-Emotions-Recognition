@@ -241,9 +241,9 @@
       "accuracy_mean": 0.3715976331360947,
       "accuracy_std": 0.0021741033219969145,
       "latency": {
-        "feature_extraction_ms_per_sample": 2.6343,
-        "classifier_ms_per_sample": 0.0227,
-        "end_to_end_ms_per_sample": 2.6569,
+        "feature_extraction_ms_per_sample": 4.06,
+        "classifier_ms_per_sample": 0.0198,
+        "end_to_end_ms_per_sample": 4.0798,
         "latency_note": "End-to-End latency is comparable across baselines. Feature-extraction is CPU-bound."
       },
       "representative_run": {
@@ -251,7 +251,7 @@
         "f1_weighted": 0.35125883974418504,
         "f1_macro": 0.3378610547471884,
         "accuracy": 0.3698224852071006,
-        "classifier_ms_per_sample": 0.0198,
+        "classifier_ms_per_sample": 0.0205,
         "classification_report": {
           "angry": {
             "precision": 0.392,

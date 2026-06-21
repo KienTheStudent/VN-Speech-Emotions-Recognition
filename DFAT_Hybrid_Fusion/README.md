@@ -1,6 +1,6 @@
-# Dual-Stream Emotion Recognition
+# DFAT Hybrid Fusion (Dual-Stream Emotion Recognition)
 
-Speech emotion recognition using WavLM + Whisper + Ensemble.
+Speech emotion recognition using WavLM + PhoWhisper + Single XGBoost with Hard Invalid-Text Fallback.
 
 ## Installation
 
@@ -14,9 +14,8 @@ pip install datasets librosa soundfile transformers torch torchaudio scikit-lear
 .
 ├── train_dualstream.py       # Train model
 ├── predict_dualstream.py      # Prediction
+├── ablation_study.py          # Ablation study runner
 └── dualstream_model/          # Trained models
-    ├── lr_model.pkl
-    ├── rf_model.pkl
     ├── xgb_model.pkl
     ├── scaler.pkl
     └── metadata.json
@@ -25,16 +24,16 @@ pip install datasets librosa soundfile transformers torch torchaudio scikit-lear
 ## Training
 
 ```bash
-python train_dualstream.py
+python train_dualstream.py [--asr_model vinai/PhoWhisper-large] [--use_scaler]
 ```
 
 The script will:
 
-* Download the ViSEC dataset
-* Extract features with WavLM (acoustic) and Whisper (textual)
-* Train 3 models: Logistic Regression, Random Forest, XGBoost
-* Optimize ensemble weights
-* Save to the `dualstream_model/` directory
+* Parse the strict `split_manifest.json`
+* Extract features with WavLM (acoustic) and PhoWhisper/PhoBERT (linguistic)
+* Apply a Hard Invalid-Text Fallback (zeroes text stream if transcript fails)
+* Tune a single XGBoost classifier via Optuna (30 trials) on the validation set
+* Save the best model to the `dualstream_model/` directory
 
 ## Prediction
 
