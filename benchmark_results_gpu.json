@@ -2,9 +2,9 @@
   "protocol": "Leak-free benchmark on full ViSEC, Apples-to-Apples Eval",
   "split": "80% Train / 10% Validation / 10% Test (from split_manifest.json)",
   "samples_total": 5280,
-  "train_size": 4224,
-  "val_size": 528,
-  "test_size": 528,
+  "train_size": 4120,
+  "val_size": 484,
+  "test_size": 676,
   "seeds": [
     42,
     123,
@@ -12,7 +12,7 @@
     789,
     2026
   ],
-  "device": "cuda",
+  "device": "cpu/cuda",
   "emotion_labels": [
     "angry",
     "happy",
@@ -21,103 +21,12 @@
   ],
   "primary_models": [
     "MFCC+RandomForest",
-    "ECAPA-TDNN",
+    "ECAPA-TDNN (simplified implementation)",
     "DFAT Late Fusion"
   ],
   "ranked_results": [
     {
-      "method": "DFAT Late Fusion",
-      "n_seeds": 1,
-      "seeds": [
-        42
-      ],
-      "f1_weighted_mean": 0.7176201331564247,
-      "f1_weighted_std": 0.0,
-      "f1_macro_mean": 0.7165537344333364,
-      "f1_macro_std": 0.0,
-      "accuracy_mean": 0.7178030303030303,
-      "accuracy_std": 0.0,
-      "latency": {
-        "feature_extraction_ms_per_sample": null,
-        "classifier_ms_per_sample": null,
-        "total_e2e_ms_per_sample": null,
-        "note": "N/A (GPU-bound, not comparable with CPU baselines)"
-      },
-      "representative_run": {
-        "seed": 42,
-        "f1_weighted": 0.7176201331564247,
-        "f1_macro": 0.7165537344333364,
-        "accuracy": 0.7178030303030303,
-        "classification_report": {
-          "angry": {
-            "precision": 0.7891156462585034,
-            "recall": 0.7891156462585034,
-            "f1-score": 0.7891156462585034,
-            "support": 147.0
-          },
-          "happy": {
-            "precision": 0.7156862745098039,
-            "recall": 0.5934959349593496,
-            "f1-score": 0.6488888888888888,
-            "support": 123.0
-          },
-          "neutral": {
-            "precision": 0.6263736263736264,
-            "recall": 0.76,
-            "f1-score": 0.6867469879518072,
-            "support": 150.0
-          },
-          "sad": {
-            "precision": 0.7835051546391752,
-            "recall": 0.7037037037037037,
-            "f1-score": 0.7414634146341463,
-            "support": 108.0
-          },
-          "accuracy": 0.7178030303030303,
-          "macro avg": {
-            "precision": 0.7286701754452772,
-            "recall": 0.7115788212303892,
-            "f1-score": 0.7165537344333364,
-            "support": 528.0
-          },
-          "weighted avg": {
-            "precision": 0.7246288114048878,
-            "recall": 0.7178030303030303,
-            "f1-score": 0.7176201331564247,
-            "support": 528.0
-          }
-        },
-        "confusion_matrix": [
-          [
-            116,
-            9,
-            17,
-            5
-          ],
-          [
-            16,
-            73,
-            31,
-            3
-          ],
-          [
-            8,
-            15,
-            114,
-            13
-          ],
-          [
-            7,
-            5,
-            20,
-            76
-          ]
-        ]
-      },
-      "note": "Single-run result from DFAT_Hybrid_Fusion/dualstream_model/metadata.json"
-    },
-    {
-      "method": "ECAPA-TDNN",
+      "method": "ECAPA-TDNN (simplified implementation)",
       "n_seeds": 1,
       "seeds": [
         42
@@ -131,8 +40,8 @@
       "latency": {
         "feature_extraction_ms_per_sample": null,
         "classifier_ms_per_sample": null,
-        "total_e2e_ms_per_sample": null,
-        "note": "N/A (GPU-bound, not comparable with CPU baselines)"
+        "end_to_end_ms_per_sample": null,
+        "latency_note": "N/A (GPU-bound, not comparable with CPU baselines)"
       },
       "representative_run": {
         "seed": 42,
@@ -205,10 +114,10 @@
           ]
         ]
       },
-      "note": "Single-run result from ECAPA/emotion_model/metadata.json"
+      "note": "Results from metadata.json"
     },
     {
-      "method": "MFCC+RandomForest",
+      "method": "DFAT Late Fusion",
       "n_seeds": 5,
       "seeds": [
         42,
@@ -217,89 +126,202 @@
         789,
         2026
       ],
-      "f1_weighted_mean": 0.36505241868777566,
-      "f1_weighted_std": 0.009438304583906654,
-      "f1_macro_mean": 0.35130948052561173,
-      "f1_macro_std": 0.010750707629844343,
-      "accuracy_mean": 0.3939393939393939,
-      "accuracy_std": 0.00785471263383625,
+      "f1_weighted_mean": 0.5086879875938084,
+      "f1_weighted_std": 0.01166733349300875,
+      "f1_macro_mean": 0.504944770829351,
+      "f1_macro_std": 0.012249982913250593,
+      "accuracy_mean": 0.5091715976331361,
+      "accuracy_std": 0.011959398184264943,
       "latency": {
-        "feature_extraction_ms_per_sample": 3.1645,
-        "classifier_ms_per_sample": 0.0682,
-        "total_e2e_ms_per_sample": 3.2326
+        "feature_extraction_ms_per_sample": null,
+        "classifier_ms_per_sample": null,
+        "end_to_end_ms_per_sample": null,
+        "latency_note": "N/A (GPU-bound, not comparable with CPU baselines)"
       },
       "representative_run": {
-        "seed": 789,
-        "f1_weighted": 0.36036609922008583,
-        "f1_macro": 0.34333027611410755,
-        "accuracy": 0.39015151515151514,
+        "seed": 2026,
+        "f1_weighted": 0.5132219525778455,
+        "f1_macro": 0.5108451172813702,
+        "accuracy": 0.5133136094674556,
+        "ensemble_weights": {
+          "xgb": 0.3785853780408048,
+          "rf": 0.49637987379654347,
+          "lr": 0.12503474816265175
+        },
+        "xgboost_best_params": {
+          "max_depth": 7,
+          "learning_rate": 0.182214965829454,
+          "n_estimators": 116,
+          "min_child_weight": 6,
+          "subsample": 0.6593901900403203,
+          "colsample_bytree": 0.7397538550086068,
+          "gamma": 0.21508797997112605
+        },
         "classification_report": {
           "angry": {
-            "precision": 0.31932773109243695,
-            "recall": 0.35514018691588783,
-            "f1-score": 0.336283185840708,
-            "support": 107.0
-          },
-          "happy": {
-            "precision": 0.3709677419354839,
-            "recall": 0.21296296296296297,
-            "f1-score": 0.27058823529411763,
-            "support": 108.0
-          },
-          "neutral": {
-            "precision": 0.4186851211072664,
-            "recall": 0.6914285714285714,
-            "f1-score": 0.521551724137931,
+            "precision": 0.6060606060606061,
+            "recall": 0.5714285714285714,
+            "f1-score": 0.5882352941176471,
             "support": 175.0
           },
+          "happy": {
+            "precision": 0.5289855072463768,
+            "recall": 0.46496815286624205,
+            "f1-score": 0.49491525423728816,
+            "support": 157.0
+          },
+          "neutral": {
+            "precision": 0.44150943396226416,
+            "recall": 0.5679611650485437,
+            "f1-score": 0.4968152866242038,
+            "support": 206.0
+          },
           "sad": {
-            "precision": 0.41379310344827586,
-            "recall": 0.17391304347826086,
-            "f1-score": 0.24489795918367346,
+            "precision": 0.5277777777777778,
+            "recall": 0.41304347826086957,
+            "f1-score": 0.4634146341463415,
             "support": 138.0
           },
-          "accuracy": 0.39015151515151514,
+          "accuracy": 0.5133136094674556,
           "macro avg": {
-            "precision": 0.38069342439586573,
-            "recall": 0.35836119119642074,
-            "f1-score": 0.34333027611410755,
-            "support": 528.0
+            "precision": 0.5260833312617562,
+            "recall": 0.5043503419010567,
+            "f1-score": 0.5108451172813702,
+            "support": 676.0
           },
           "weighted avg": {
-            "precision": 0.3875112269423422,
-            "recall": 0.39015151515151514,
-            "f1-score": 0.36036609922008583,
-            "support": 528.0
+            "precision": 0.5220349222305428,
+            "recall": 0.5133136094674556,
+            "f1-score": 0.5132219525778455,
+            "support": 676.0
           }
         },
         "confusion_matrix": [
           [
-            38,
-            10,
-            49,
-            10
+            100,
+            15,
+            51,
+            9
           ],
           [
-            25,
-            23,
+            18,
+            73,
             52,
-            8
+            14
+          ],
+          [
+            27,
+            34,
+            117,
+            28
           ],
           [
             20,
-            18,
-            121,
-            16
+            16,
+            45,
+            57
+          ]
+        ]
+      },
+      "note": "Results from metadata.json"
+    },
+    {
+      "method": "MFCC+RandomForest",
+      "is_stochastic": true,
+      "n_seeds": 5,
+      "seeds": [
+        42,
+        123,
+        456,
+        789,
+        2026
+      ],
+      "f1_weighted_mean": 0.35099572406111046,
+      "f1_weighted_std": 0.002643511065876514,
+      "f1_macro_mean": 0.3365466884008147,
+      "f1_macro_std": 0.0030542623799486904,
+      "accuracy_mean": 0.3715976331360947,
+      "accuracy_std": 0.0021741033219969145,
+      "latency": {
+        "feature_extraction_ms_per_sample": 2.5993,
+        "classifier_ms_per_sample": 0.0188,
+        "end_to_end_ms_per_sample": 2.6181,
+        "latency_note": "End-to-End latency is comparable across baselines. Feature-extraction is CPU-bound."
+      },
+      "representative_run": {
+        "seed": 456,
+        "f1_weighted": 0.35125883974418504,
+        "f1_macro": 0.3378610547471884,
+        "accuracy": 0.3698224852071006,
+        "classifier_ms_per_sample": 0.0193,
+        "classification_report": {
+          "angry": {
+            "precision": 0.392,
+            "recall": 0.28,
+            "f1-score": 0.32666666666666666,
+            "support": 175.0
+          },
+          "happy": {
+            "precision": 0.40625,
+            "recall": 0.2484076433121019,
+            "f1-score": 0.308300395256917,
+            "support": 157.0
+          },
+          "neutral": {
+            "precision": 0.3888888888888889,
+            "recall": 0.6456310679611651,
+            "f1-score": 0.4854014598540146,
+            "support": 206.0
+          },
+          "sad": {
+            "precision": 0.25663716814159293,
+            "recall": 0.21014492753623187,
+            "f1-score": 0.23107569721115537,
+            "support": 138.0
+          },
+          "accuracy": 0.3698224852071006,
+          "macro avg": {
+            "precision": 0.36094401425762046,
+            "recall": 0.3460459097023747,
+            "f1-score": 0.3378610547471884,
+            "support": 676.0
+          },
+          "weighted avg": {
+            "precision": 0.3667282401104304,
+            "recall": 0.3698224852071006,
+            "f1-score": 0.35125883974418504,
+            "support": 676.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            49,
+            25,
+            74,
+            27
           ],
           [
-            36,
-            11,
-            67,
-            24
+            25,
+            39,
+            76,
+            17
+          ],
+          [
+            10,
+            23,
+            133,
+            40
+          ],
+          [
+            41,
+            9,
+            59,
+            29
           ]
         ]
       }
     }
   ],
-  "best_method": "DFAT Late Fusion"
+  "global_best_method": "ECAPA-TDNN (simplified implementation)",
+  "primary_best_method": "ECAPA-TDNN (simplified implementation)"
 }
