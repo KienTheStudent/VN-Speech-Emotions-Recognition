@@ -1,6 +1,7 @@
 {
-  "protocol": "Leak-free: Val for early stopping/scheduler, Test evaluated once",
+  "protocol": "Leak-free: Val for early stopping/scheduler, Test evaluated once, 5-seed repeated",
   "split_source": "split_manifest.json",
+  "split_checksum": "2190b13cf1a13966b4c514a1c31966de659c245da7768e402c7209c7530ef3f7",
   "emotion_labels": [
     "angry",
     "happy",
@@ -8,92 +9,95 @@
     "sad"
   ],
   "num_classes": 4,
-  "best_val_f1": 0.6205833155810215,
-  "model_config": {
-    "input_size": 80,
-    "channels": 256,
-    "emb_size": 192
-  },
-  "split_checksum": "2190b13cf1a13966b4c514a1c31966de659c245da7768e402c7209c7530ef3f7",
-  "n_seeds": 1,
+  "n_seeds": 5,
   "seeds": [
-    42
+    42,
+    123,
+    456,
+    789,
+    2026
   ],
-  "test_accuracy_mean": 0.6098484848484849,
-  "test_accuracy_std": 0.0,
-  "test_f1_weighted_mean": 0.6137022744639278,
-  "test_f1_weighted_std": 0.0,
-  "test_f1_macro_mean": 0.6130921871556501,
-  "test_f1_macro_std": 0.0,
+  "test_accuracy_mean": 0.4112426035502958,
+  "test_accuracy_std": 0.016969976804378676,
+  "test_f1_weighted_mean": 0.4124806531623874,
+  "test_f1_weighted_std": 0.017053339176552523,
+  "test_f1_macro_mean": 0.4122330118490359,
+  "test_f1_macro_std": 0.01518499404870769,
   "representative_run": {
-    "seed": 42,
-    "f1_weighted": 0.6137022744639278,
-    "f1_macro": 0.6130921871556501,
-    "accuracy": 0.6098484848484849,
+    "seed": 2026,
+    "f1_weighted": 0.411100197721114,
+    "f1_macro": 0.4138464769204079,
+    "accuracy": 0.41420118343195267,
+    "best_val_f1": 0.4735248634497966,
     "classification_report": {
       "angry": {
-        "precision": 0.7894736842105263,
-        "recall": 0.7142857142857143,
-        "f1-score": 0.75,
-        "support": 147.0
+        "precision": 0.4947916666666667,
+        "recall": 0.5428571428571428,
+        "f1-score": 0.5177111716621253,
+        "support": 175.0
       },
       "happy": {
-        "precision": 0.5163398692810458,
-        "recall": 0.6422764227642277,
-        "f1-score": 0.572463768115942,
-        "support": 123.0
+        "precision": 0.31683168316831684,
+        "recall": 0.40764331210191085,
+        "f1-score": 0.3565459610027855,
+        "support": 157.0
       },
       "neutral": {
-        "precision": 0.4968152866242038,
-        "recall": 0.52,
-        "f1-score": 0.50814332247557,
-        "support": 150.0
+        "precision": 0.43703703703703706,
+        "recall": 0.28640776699029125,
+        "f1-score": 0.3460410557184751,
+        "support": 206.0
       },
       "sad": {
-        "precision": 0.7058823529411765,
-        "recall": 0.5555555555555556,
-        "f1-score": 0.6217616580310881,
-        "support": 108.0
+        "precision": 0.4217687074829932,
+        "recall": 0.4492753623188406,
+        "f1-score": 0.43508771929824563,
+        "support": 138.0
       },
-      "accuracy": 0.6098484848484849,
+      "accuracy": 0.41420118343195267,
       "macro avg": {
-        "precision": 0.6271277982642381,
-        "recall": 0.6080294231513743,
-        "f1-score": 0.6130921871556501,
-        "support": 528.0
+        "precision": 0.41760727358875344,
+        "recall": 0.42154589606704634,
+        "f1-score": 0.4138464769204079,
+        "support": 676.0
       },
       "weighted avg": {
-        "precision": 0.6256061034314274,
-        "recall": 0.6098484848484849,
-        "f1-score": 0.6137022744639278,
-        "support": 528.0
+        "precision": 0.4209538863703774,
+        "recall": 0.41420118343195267,
+        "f1-score": 0.411100197721114,
+        "support": 676.0
       }
     },
     "confusion_matrix": [
       [
-        105,
-        17,
-        18,
-        7
+        95,
+        35,
+        27,
+        18
       ],
       [
-        11,
-        79,
-        29,
-        4
+        35,
+        64,
+        33,
+        25
       ],
       [
-        13,
-        45,
-        78,
-        14
+        37,
+        68,
+        59,
+        42
       ],
       [
-        4,
-        12,
-        32,
-        60
+        25,
+        35,
+        16,
+        62
       ]
     ]
+  },
+  "model_config": {
+    "input_size": 80,
+    "channels": 256,
+    "emb_size": 192
   }
 }
