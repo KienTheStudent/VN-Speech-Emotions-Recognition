@@ -41,16 +41,17 @@ acoustic embeddings with PhoBERT linguistic embeddings derived via PhoWhisper AS
 All experiments follow a strict leak-free protocol with a fixed
 speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
 Test ($\approx$ 10\%) split, governed by provenance checksums.
-To ensure robust evaluation, classical models are evaluated over 5 random seeds
-to report mean $\pm$ standard deviation, while computationally heavy deep models
-(DFAT, ECAPA-TDNN) are evaluated across 5 random seeds to report mean and standard deviation.
+To ensure robust evaluation, classical models and the proposed DFAT pipeline are evaluated over 5 random seeds
+to report mean $\pm$ standard deviation. Due to its monolithic training constraint, ECAPA-TDNN is evaluated
+on a single seed.
 
 Driven by Weighted F1 as the primary anchor metric, results on the held-out
-test set suggest that DFAT Late Fusion achieves the highest performance in our evaluation.
-It outperforms the baseline MFCC+RandomForest and ECAPA-TDNN by significant
-margins. Ablation studies indicate that the linguistic stream serves as a valuable
-supplementary signal in early-fusion setups, though late stream-level fusion is not 
-unconditionally superior to acoustic-only baselines.
+test set demonstrate that ECAPA-TDNN achieves the highest performance, outperforming
+the proposed DFAT pipeline. Analysis reveals that while linguistic fusion provides supplementary
+cues, the explicit ASR bottleneck loses critical acoustic paralinguistics (e.g., tone, cadence),
+whereas end-to-end acoustic modeling in ECAPA-TDNN captures and retains them more effectively.
+These findings highlight the challenges of using ASR pipelines for affective computing 
+without tight, low-level acoustic integration.
 \end{abstract}
 
 \chapter*{Acknowledgements}
@@ -127,10 +128,10 @@ This thesis contributes to the field by:
 Traditional SER heavily relies on handcrafted acoustic features, notably Mel-Frequency Cepstral Coefficients (MFCCs), combined with classical machine learning classifiers such as Support Vector Machines or Random Forests. While computationally efficient, these approaches often struggle to generalize across diverse speakers and environmental conditions.
 
 \section{Deep Audio Models}
-The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations.
+The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN \cite{desplanques2020ecapa} leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations. Similarly, self-supervised foundation models like WavLM \cite{chen2022wavlm} extract rich, continuous acoustic features from unlabelled speech, providing a strong anchor for downstream SER tasks.
 
 \section{Audio-Linguistic Fusion}
-Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition to infer text from audio, followed by semantic embedding models like PhoBERT, merging both streams to achieve superior classification performance.
+Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition (e.g., PhoWhisper \cite{nguyen2024phowhisper}) to infer text from audio, followed by semantic embedding models like PhoBERT \cite{nguyen2020phobert}, merging both streams to achieve superior classification performance.
 
 \chapter{Objectives}
 \section{Research Questions}
@@ -385,9 +386,9 @@ The primary benchmark results on the integrity-checked test set are presented in
 \toprule
 \textbf{Method} & \textbf{wF1} & \textbf{$\sigma$} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
-\quad \textbf{DFAT Late Fusion} & 0.7176 & — & 0.7166 & 0.7178 \\
-\quad \textbf{ECAPA-TDNN} & 0.6137 & — & 0.6131 & 0.6098 \\
-\quad \textbf{MFCC+RandomForest} & 0.3651 & 0.0094 & 0.3513 & 0.3939 \\
+\quad \textbf{ECAPA-TDNN (simplified implementation)} & 0.6137 & — & 0.6131 & 0.6098 \\
+\quad \textbf{DFAT Late Fusion} & 0.5087 & 0.0117 & 0.5049 & 0.5092 \\
+\quad \textbf{MFCC+RandomForest} & 0.3510 & 0.0026 & 0.3365 & 0.3716 \\
 \bottomrule
 \end{tabular}
 %% END_BENCHMARK_TABLE
@@ -402,13 +403,13 @@ The primary benchmark results on the integrity-checked test set are presented in
     \label{fig:model_comp}
 \end{figure}
 
-\textbf{Interpretation}: Under the current protocol, DFAT Late Fusion appears to be the most effective model, achieving a wF1 of 0.7176, which is an absolute gain of $+0.1039$ over the deep ECAPA-TDNN baseline and nearly double the performance of the classical MFCC+RF pipeline. The standard deviation ($\sigma=0.0094$) for the multi-seed RF indicates that the classical methods are highly sensitive to initialization variations, whereas deep representation learning offers substantially higher stability.
+\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, ECAPA-TDNN achieves the highest performance with a wF1 of 0.6137, significantly outperforming the proposed DFAT Late Fusion pipeline (wF1 = 0.5087). While DFAT outperforms the classical MFCC+RandomForest baseline, it falls short of the end-to-end deep acoustic model. The standard deviation ($\sigma=0.0117$) for DFAT across 5 seeds indicates stable convergence, but its absolute performance ceiling is restricted by the ASR component.
 
-\textbf{What happened}: DFAT outperformed both classical and deep audio-only baselines by a substantial margin.
+\textbf{What happened}: The proposed audio-linguistic fusion pipeline failed to surpass a pure acoustic deep learning baseline. 
 
-\textbf{Why it happened}: The integration of textual semantics likely provides crucial context that resolves acoustic ambiguities present in audio-only representations.
+\textbf{Why it happened}: The integration of textual semantics via an explicit ASR bottleneck forces the model to rely on transcribed words, completely stripping away rich paralinguistic nuances (e.g., tone, cadence, breathiness, and pitch micro-variations). While text provides semantic context, Vietnamese emotional expressions are heavily embedded in the acoustic delivery. ECAPA-TDNN, operating directly on raw acoustic features without a textual quantization bottleneck, effectively preserves and models these critical affective cues. Furthermore, errors in ASR transcription—particularly common in highly emotional speech—propagate downstream, corrupting the linguistic stream's signal.
 
-\textbf{What it means for Vietnamese SER}: This suggests that future state-of-the-art systems for Vietnamese should strongly consider multimodal approaches, even when relying on imperfect ASR transcripts.
+\textbf{What it means for Vietnamese SER}: This demonstrates that forced explicit transcription (ASR) is a sub-optimal pathway for affective computing in Vietnamese unless the transcription process is tightly integrated or bypassed using self-supervised joint audio-text representations. Future state-of-the-art systems must prioritize preserving low-level acoustic details over rigid semantic extraction.
 
 \section{Per-Class Analysis}
 Table~\ref{tab:perclass} demonstrates the performance disparity across distinct emotional classes.
@@ -426,23 +427,23 @@ Neutral & 0.497 & 0.520 & 0.508 & 150 \\
 Sad     & 0.706 & 0.556 & 0.622 & 108 \\
 \midrule
 \multicolumn{5}{l}{\textit{DFAT Late Fusion (Proposed)}} \\
-Angry   & 0.789 & 0.789 & 0.789 & 147 \\
-Happy   & 0.716 & 0.593 & 0.649 & 123 \\
-Neutral & 0.626 & 0.760 & 0.687 & 150 \\
-Sad     & 0.784 & 0.704 & 0.741 & 108 \\
+Angry   & 0.606 & 0.571 & 0.588 & 175 \\
+Happy   & 0.529 & 0.465 & 0.495 & 157 \\
+Neutral & 0.442 & 0.568 & 0.497 & 206 \\
+Sad     & 0.528 & 0.413 & 0.463 & 138 \\
 \bottomrule
 \end{tabular}
 \caption{Per-class performance comparison on test set.}
 \label{tab:perclass}
 \end{table}
 
-\textbf{Interpretation}: The \textit{Angry} class is the easiest to recognize across all models (F1=0.789 for DFAT) due to its extreme acoustic markers (high energy, sharp pitch). Conversely, \textit{Happy} and \textit{Neutral} prove to be the most challenging. DFAT successfully lifts the Neutral F1 score from 0.508 (ECAPA) to 0.687 by relying on textual context when acoustic signals are ambiguous. 
+\textbf{Interpretation}: The \textit{Angry} class remains the easiest to recognize across models (F1=0.750 for ECAPA, 0.588 for DFAT) due to its extreme acoustic markers (high energy, sharp pitch). Conversely, \textit{Happy} and \textit{Neutral} prove to be challenging. While DFAT attempts to use textual context to disambiguate emotions, the loss of acoustic nuance results in a broad performance degradation across all classes compared to ECAPA-TDNN. 
 
-\textbf{What happened}: The \textit{Angry} class was consistently recognized with high accuracy, whereas \textit{Happy} and \textit{Neutral} were more difficult. DFAT significantly improved the recognition of the \textit{Neutral} class.
+\textbf{What happened}: The linguistic stream struggled to compensate for the emotional signal lost during the transcription process, causing DFAT to underperform ECAPA-TDNN in every single class.
 
-\textbf{Why it happened}: "Angry" speech contains distinct, high-energy acoustic markers. "Happy" and "Neutral" often share similar acoustic profiles in conversational Vietnamese, allowing the linguistic context in DFAT to effectively disambiguate them.
+\textbf{Why it happened}: "Angry" and "Sad" speech are notoriously difficult for ASR engines to transcribe accurately because they diverge heavily from the neutral speech used in ASR training. This causes cascading transcription errors that destroy the linguistic stream's reliability. Meanwhile, ECAPA-TDNN preserves these acoustic shifts natively.
 
-\textbf{What it means for Vietnamese SER}: Acoustic-only models are fundamentally limited by class overlap; thus, linguistic features are particularly critical for distinguishing subtle emotional states.
+\textbf{What it means for Vietnamese SER}: Extracting text via an ASR bottleneck acts as an information filter that removes paralinguistic cues. Pure acoustic architectures handle emotional variance better than cascade architectures.
 
 \section{Error and Failure Analysis}
 Analyzing the confusion mechanisms reveals how the models perceive the data and where they fundamentally fail. Table~\ref{tab:perclass} highlighted the disparity in class-wise performance, which is visually summarized in Figure~\ref{fig:per_class_f1}. The detailed confusion counts are presented in Figure~\ref{fig:confusion_matrices}, and the dominant misclassification pairs are ranked in Figure~\ref{fig:top_confusion}.
@@ -539,15 +540,18 @@ To prove the necessity of the proposed streams, we conducted a rigorous ablation
 \toprule
 \textbf{Configuration} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
-Acoustic-only (WavLM) & 0.4329 & 0.4278 & 0.4356 \\
-Linguistic-only (PhoWhisper-large + PhoBERT) & 0.3364 & 0.3349 & 0.3447 \\
-Early Fusion (Concat 1536-d) & 0.3995 & 0.3937 & 0.3996 \\
-Late Fusion (stream-level) & 0.3408 & 0.3383 & 0.3655 \\
-Linguistic-only (Whisper-small + PhoBERT) & 0.2624 & 0.2512 & 0.2708 \\
-Early Fusion (Whisper-small) & 0.4044 & 0.3972 & 0.4072 \\
-Early Fusion + 10\% synthetic noise & 0.4280 & 0.4216 & 0.4299 \\
-Early Fusion + 20\% synthetic noise & 0.4242 & 0.4179 & 0.4280 \\
-Early Fusion + 30\% synthetic noise & 0.4165 & 0.4169 & 0.4167 \\
+Acoustic-only (WavLM) & 0.4918 & 0.4887 & 0.4896 \\
+Linguistic-only (vinai/PhoWhisper-large + PhoBERT) & 0.3953 & 0.3942 & 0.3964 \\
+Early Fusion (Concat 1536-d) & 0.5080 & 0.5023 & 0.5104 \\
+Early Fusion (No StandardScaler) & 0.5238 & 0.5203 & 0.5237 \\
+Early Fusion (No Optuna tuning) & 0.4982 & 0.4916 & 0.5030 \\
+Early Fusion (No word segmentation) & 0.4947 & 0.4912 & 0.4956 \\
+Late Fusion (stream-level) & 0.4365 & 0.4259 & 0.4586 \\
+Linguistic-only (openai/whisper-small + PhoBERT) & 0.3517 & 0.3471 & 0.3609 \\
+Early Fusion (openai/whisper-small) & 0.4716 & 0.4641 & 0.4749 \\
+Early Fusion + 10\% synthetic noise & 0.4934 & 0.4881 & 0.4941 \\
+Early Fusion + 20\% synthetic noise & 0.4863 & 0.4798 & 0.4882 \\
+Early Fusion + 30\% synthetic noise & 0.4941 & 0.4920 & 0.4941 \\
 \bottomrule
 \end{tabular}
 %% END_ABLATION_TABLE
@@ -585,7 +589,7 @@ Figure~\ref{fig:seed_stability} shows the seed stability of each pipeline.
 \end{figure}
 
 \section{Discussion}
-The findings reveal the true difficulty of Vietnamese SER. Classical methods like MFCC fail dramatically in a speaker-independent setting because they memorize speaker timbre instead of generalized emotion semantics. The ECAPA-TDNN generalized its representation significantly better. Ultimately, DFAT's superior performance is attributed to its ability to mimic human perception: when a tone is ambiguous, we instinctively rely on the semantic context of the words being spoken. However, the reliance on pseudo-multimodality (ASR text) creates an inherent ceiling bound by the ASR system's word error rate under noisy emotional conditions.
+The findings reveal the true difficulty of Vietnamese SER. Classical methods like MFCC fail dramatically in a speaker-independent setting because they memorize speaker timbre instead of generalized emotion semantics. The ECAPA-TDNN generalized its representation significantly better. Ultimately, the superior performance of ECAPA-TDNN demonstrates that maintaining continuous, high-resolution acoustic features is far more critical for emotion recognition than extracting discrete semantic tokens. While humans instinctively rely on semantic context when a tone is ambiguous, computationally forcing this via pseudo-multimodality (ASR text) creates a severe bottleneck bound by the ASR system's word error rate under noisy emotional conditions.
 
 \chapter{Threats to Validity and Limitations}
 We proactively identify the following threats to the validity of our conclusions:
@@ -597,7 +601,7 @@ The speaker-independent split guarantees no identity leakage, but it introduces 
 DFAT's linguistic stream is strictly upper-bounded by PhoWhisper's transcription accuracy. Under extreme emotional prosody (shouting, whispering, crying), PhoWhisper's word error rate increases substantially. This creates a cascading failure: poor transcripts produce out-of-distribution PhoBERT embeddings, which can actively harm the fusion rather than help it. Our ablation confirms this risk: the inferior \texttt{Whisper-small} variant degrades fusion performance below the acoustic-only baseline. Even though PhoWhisper is fine-tuned for Vietnamese, it remains vulnerable to severe acoustic noise.
 
 \section{Seed Sensitivity and Benchmark Fairness}
-The MFCC+RF pipeline was evaluated across 5 seeds ($\sigma=0.0094$), demonstrating measurable initialization sensitivity. However, ECAPA-TDNN and DFAT were each evaluated with a single seed due to computational constraints. This means their reported metrics lack variance estimates, and the true performance range of these deep models remains unknown. Future work should prioritize multi-seed evaluation for all pipelines.
+The classical MFCC+RF pipeline and the proposed DFAT pipeline were evaluated across 5 random seeds to quantify variance. However, ECAPA-TDNN was evaluated with a single seed due to its monolithic training constraints. This means its reported metrics lack variance estimates, and its absolute stability margin relative to DFAT remains unknown. Future work should prioritize multi-seed evaluation for deep baseline models.
 
 \section{Dataset Limitations}
 ViSEC is an \textit{acted} corpus. Speakers were instructed to produce specific emotions, which may not reflect spontaneous emotional expression. Additionally, with only 4 emotion classes and 5,280 samples, the dataset cannot capture the full complexity of human affect. Results may not transfer directly to spontaneous, in-the-wild Vietnamese speech.
@@ -606,9 +610,9 @@ ViSEC is an \textit{acted} corpus. Speakers were instructed to produce specific 
 \section{Conclusion}
 This thesis systematically addressed Vietnamese SER through the construction of a rigorous speaker-independent evaluation protocol and the proposal of a novel architecture. The key conclusions are:
 \begin{enumerate}
-    \item \textbf{Classical limitations exposed}: We demonstrated that classical ML pipelines appear to suffer significant performance degradation when subjected to strict speaker-independent testing.
-    \item \textbf{DFAT as the superior methodology}: The ASR-assisted audio-linguistic fusion model (DFAT) achieved the highest result (0.7176 wF1) on the test set in our evaluation.
-    \item \textbf{The role of language}: Through ablation, we showed that ASR-derived text can act as a powerful regularizer for acoustically ambiguous classes like "Neutral", despite the inherent risks of transcription noise.
+    \item \textbf{Classical limitations exposed}: We demonstrated that classical ML pipelines suffer significant performance degradation when subjected to strict speaker-independent testing.
+    \item \textbf{The supremacy of end-to-end acoustics}: The ECAPA-TDNN model achieved the highest performance (0.6137 wF1) on the test set, substantially outperforming the multimodal DFAT pipeline (0.5087 wF1).
+    \item \textbf{The vulnerability of ASR pipelines}: Through ablation and failure analysis, we established that while ASR-derived text offers supplementary semantic context, the explicit transcription bottleneck destroys critical acoustic paralinguistics. The cascading ASR noise renders forced multimodal fusion inferior to pure acoustic representation learning in Vietnamese SER.
 \end{enumerate}
 
 \section{Limitations}

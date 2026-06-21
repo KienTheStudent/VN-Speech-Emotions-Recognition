@@ -45,9 +45,9 @@ This document captures the detailed setup, metrics, and insights derived from th
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | N/A (GPU-bound, not comparable with CPU baselines) |
-| **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | N/A (GPU-bound, not comparable with CPU baselines) |
-| **MFCC+RandomForest** | **Primary** | 0.3651 ± 0.0094 | 0.3513 | 0.3939 | 3.23 ms |
+| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.6137 | 0.6131 | 0.6098 | — |
+| **DFAT Late Fusion** | **Primary** | 0.5087 ± 0.0117 | 0.5049 | 0.5092 | — |
+| **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 | — |
 <!-- END_BENCHMARK_TABLE -->
 
 ### 3.2 DFAT Ablation Study
@@ -55,15 +55,18 @@ This document captures the detailed setup, metrics, and insights derived from th
 <!-- START_ABLATION_TABLE -->
 | Configuration | Ensemble wF1 | Ensemble mF1 | Acc |
 |---------------|-------------|-------------|-----|
-| Acoustic-only (WavLM) | 0.4329 | 0.4278 | 0.4356 |
-| Linguistic-only (Whisper-small + PhoBERT) | 0.3364 | 0.3349 | 0.3447 |
-| Early Fusion (Concat 1536-d) | 0.3995 | 0.3937 | 0.3996 |
-| Late Fusion (stream-level) | 0.3408 | 0.3383 | 0.3655 |
-| Linguistic-only (Whisper-tiny + PhoBERT) | 0.2624 | 0.2512 | 0.2708 |
-| Early Fusion (Whisper-tiny) | 0.4044 | 0.3972 | 0.4072 |
-| Early Fusion + 10% synthetic noise | 0.4280 | 0.4216 | 0.4299 |
-| Early Fusion + 20% synthetic noise | 0.4242 | 0.4179 | 0.4280 |
-| Early Fusion + 30% synthetic noise | 0.4165 | 0.4169 | 0.4167 |
+| Acoustic-only (WavLM) | 0.4918 | 0.4887 | 0.4896 |
+| Linguistic-only (vinai/PhoWhisper-large + PhoBERT) | 0.3953 | 0.3942 | 0.3964 |
+| Early Fusion (Concat 1536-d) | 0.5080 | 0.5023 | 0.5104 |
+| Early Fusion (No StandardScaler) | 0.5238 | 0.5203 | 0.5237 |
+| Early Fusion (No Optuna tuning) | 0.4982 | 0.4916 | 0.5030 |
+| Early Fusion (No word segmentation) | 0.4947 | 0.4912 | 0.4956 |
+| Late Fusion (stream-level) | 0.4365 | 0.4259 | 0.4586 |
+| Linguistic-only (openai/whisper-small + PhoBERT) | 0.3517 | 0.3471 | 0.3609 |
+| Early Fusion (openai/whisper-small) | 0.4716 | 0.4641 | 0.4749 |
+| Early Fusion + 10% synthetic noise | 0.4934 | 0.4881 | 0.4941 |
+| Early Fusion + 20% synthetic noise | 0.4863 | 0.4798 | 0.4882 |
+| Early Fusion + 30% synthetic noise | 0.4941 | 0.4920 | 0.4941 |
 <!-- END_ABLATION_TABLE -->
 
 ---
@@ -72,13 +75,13 @@ This document captures the detailed setup, metrics, and insights derived from th
 
 ### 4.1 Classical methods struggle with strict speaker-independence
 
-Under the leak-free protocol, the classical MFCC+RF baseline drops to wF1 0.3651. Previous benchmarks utilized random stratified sampling, which allowed speaker identity leakage between train and test sets, artificially inflating classical ML performance to $\sim$ 0.64. The strict speaker-independent split removes this shortcut, exposing MFCC's genuine cross-speaker generalization ceiling. By contrast, deep learning methods (ECAPA, WavLM-based) exhibit superior capacity to generalize to unseen speakers.
+Under the leak-free protocol, the classical MFCC+RF baseline drops to wF1 0.3510. Previous benchmarks utilized random stratified sampling, which allowed speaker identity leakage between train and test sets, artificially inflating classical ML performance to $\sim$ 0.64. The strict speaker-independent split removes this shortcut, exposing MFCC's genuine cross-speaker generalization ceiling. By contrast, deep learning methods (ECAPA, WavLM-based) exhibit superior capacity to generalize to unseen speakers.
 
-### 4.2 DFAT ASR-assisted fusion substantially outperforms all audio-only methods
+### 4.2 End-to-end acoustic baseline outperforms ASR-assisted fusion
 
-The DFAT Late Fusion Ensemble achieves wF1 0.7176 — a massive improvement over the audio-only ECAPA-TDNN baseline (wF1 0.6137). The improvement is most pronounced for:
-- **Neutral**: Neutral speech lacks strong acoustic markers; Whisper-derived linguistic embeddings partially compensate by encoding the semantic flatness of neutral utterances.
-- **Sad**: Sad and Happy are acoustically confusable; the lexical dimension helps disambiguate.
+The pure acoustic ECAPA-TDNN baseline achieves the highest wF1 (0.6137) on the test set, substantially outperforming the proposed DFAT Late Fusion ensemble (wF1 0.5087). The performance gap highlights the fragility of the ASR-bottleneck:
+- **Paralinguistic loss**: ASR transcription inherently strips away crucial acoustic markers (e.g., tone, cadence, micro-variations in pitch) which Vietnamese SER heavily relies on.
+- **ASR Noise**: High-arousal (Angry) and low-energy (Sad) emotions disrupt the PhoWhisper ASR, leading to degraded transcripts that confuse the PhoBERT semantic model.
 
 ### 4.3 Compute trade-off analysis
 
@@ -95,11 +98,11 @@ Common confusion patterns across all models:
 
 ## 5. Key Takeaways
 
-1. **ASR-assisted fusion >> audio-only methods.** DFAT's linguistic stream (via Whisper transcription and PhoBERT) provides complementary cues that substantially improve emotion recognition.
+1. **Audio-only baseline >> ASR-assisted fusion.** ECAPA-TDNN's end-to-end acoustic representation effectively preserves the rich paralinguistic nuances of Vietnamese emotional speech, rendering forced explicit transcription via ASR inferior.
 
 2. **Strict leak-free evaluation is critical.** Previous results with test-set-based tuning and overlapping speakers were artificially inflated. Academic benchmarks must enforce Train/Val/Test separation rigorously.
 
-3. **Neutral is the hardest class.** Acoustic-only methods struggle with Neutral; DFAT improves it significantly, but it remains the most challenging emotion.
+3. **ASR acts as a harmful bottleneck.** While textual context can occasionally disambiguate emotions, the process of quantizing audio into text discards too much critical affective signal and introduces cascading noise under extreme emotional prosody.
 
 ---
 

@@ -44,9 +44,9 @@ The thesis follows a three-tier comparison:
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| **DFAT Late Fusion** | **Primary** | 0.7176 | 0.7166 | 0.7178 | N/A (GPU-bound, not comparable with CPU baselines) |
-| **ECAPA-TDNN** | **Primary** | 0.6137 | 0.6131 | 0.6098 | N/A (GPU-bound, not comparable with CPU baselines) |
-| **MFCC+RandomForest** | **Primary** | 0.3651 ± 0.0094 | 0.3513 | 0.3939 | 3.23 ms |
+| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.6137 | 0.6131 | 0.6098 | — |
+| **DFAT Late Fusion** | **Primary** | 0.5087 ± 0.0117 | 0.5049 | 0.5092 | — |
+| **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 | — |
 <!-- END_BENCHMARK_TABLE -->
 
 ### DFAT Ablation Study
@@ -54,15 +54,18 @@ The thesis follows a three-tier comparison:
 <!-- START_ABLATION_TABLE -->
 | Configuration | Ensemble wF1 | Ensemble mF1 | Acc |
 |---------------|-------------|-------------|-----|
-| Acoustic-only (WavLM)                     | 0.4329 | 0.4300 | 0.4430 |
-| Linguistic-only (PhoWhisper-large + PhoBERT) | 0.3364 | 0.3349 | 0.3447 |
-| Early Fusion (Concat)                     | 0.3995 | 0.3957 | 0.4120 |
-| Late Fusion (Ensemble)                    | 0.3408 | 0.3396 | 0.3441 |
-| Linguistic-only (Whisper-small + PhoBERT) | 0.2624 | 0.2512 | 0.2708 |
-| Early Fusion (Whisper-small)              | 0.4044 | 0.3972 | 0.4072 |
-| Early Fusion + 10% synthetic noise | 0.4280 | 0.4216 | 0.4299 |
-| Early Fusion + 20% synthetic noise | 0.4242 | 0.4179 | 0.4280 |
-| Early Fusion + 30% synthetic noise | 0.4165 | 0.4169 | 0.4167 |
+| Acoustic-only (WavLM) | 0.4918 | 0.4887 | 0.4896 |
+| Linguistic-only (vinai/PhoWhisper-large + PhoBERT) | 0.3953 | 0.3942 | 0.3964 |
+| Early Fusion (Concat 1536-d) | 0.5080 | 0.5023 | 0.5104 |
+| Early Fusion (No StandardScaler) | 0.5238 | 0.5203 | 0.5237 |
+| Early Fusion (No Optuna tuning) | 0.4982 | 0.4916 | 0.5030 |
+| Early Fusion (No word segmentation) | 0.4947 | 0.4912 | 0.4956 |
+| Late Fusion (stream-level) | 0.4365 | 0.4259 | 0.4586 |
+| Linguistic-only (openai/whisper-small + PhoBERT) | 0.3517 | 0.3471 | 0.3609 |
+| Early Fusion (openai/whisper-small) | 0.4716 | 0.4641 | 0.4749 |
+| Early Fusion + 10% synthetic noise | 0.4934 | 0.4881 | 0.4941 |
+| Early Fusion + 20% synthetic noise | 0.4863 | 0.4798 | 0.4882 |
+| Early Fusion + 30% synthetic noise | 0.4941 | 0.4920 | 0.4941 |
 <!-- END_ABLATION_TABLE -->
 
 ## Methods
