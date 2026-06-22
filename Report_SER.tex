@@ -85,37 +85,42 @@ I would like to express my sincere gratitude to my advisor and professors for th
 \endgroup
 
 \chapter{Introduction}
+
+\section{Background and Motivation}
+Speech Emotion Recognition (SER) is a cornerstone of modern affective computing, enabling systems to perceive and respond to human emotions based on acoustic signals. Beyond traditional speech-to-text transcription, SER plays a vital role in human-computer interaction, psychiatric monitoring, and customer analytics in call centers. Emotion in speech is a complex, multifaceted phenomenon conveyed not only through the lexical content (the actual words spoken) but also through paralinguistic cues such as prosody, pitch, intensity, speaking rate, and voice quality. Consequently, the ultimate goal of SER research extends beyond mere classification of emotional states; it involves deciphering the intricate interplay between acoustic delivery and linguistic semantics under diverse, real-world conditions. Understanding this multimodal nature of human expression remains a fundamental challenge in artificial intelligence.
+
+\section{Why Vietnamese Speech Emotion Recognition is Challenging}
+While SER has seen substantial progress in resource-rich languages such as English, adapting these advancements to the Vietnamese language presents unique and profound challenges. Vietnamese is a tonal, analytic language where pitch variations are inherently tied to lexical meaning. This dual role of acoustic cues—serving both linguistic and affective purposes—creates a high degree of overlap between emotion classes. For instance, distinguishing between sadness and a neutral state can be remarkably difficult due to narrow pitch fluctuations. Furthermore, emotion expression in Vietnamese is highly speaker-dependent and contextually bound. A significant methodological flaw in many historical benchmarks is the reliance on random data splits, leading to severe "speaker leakage." In such scenarios, deep learning models tend to memorize speaker identities rather than learning generalized emotional representations. Addressing Vietnamese SER requires not only overcoming the scarcity of high-quality annotated data but also designing rigorous, speaker-independent evaluation protocols that reflect true generalization capabilities.
+
+\section{Research Gap}
+Despite the growing interest in Vietnamese affective computing, a comprehensive framework that systematically evaluates audio-linguistic fusion under strict speaker-independent constraints is largely absent. Existing works either focus exclusively on pure acoustic modeling—which suffers heavily from speaker-induced variance—or evaluate their systems using flawed random-split protocols that inflate performance metrics. Moreover, while incorporating transcriptions via Automatic Speech Recognition (ASR) has shown promise, there is a distinct lack of empirical analysis regarding the trade-off between the performance gains of ASR-assisted fusion and the detrimental effects of ASR transcription errors (noise) in a tonal language context. A rigorous, controlled investigation into whether noisy, inferred language can consistently provide a regularizing effect on the acoustic signal for Vietnamese SER is necessary.
+
 \section{Problem Statement}
-Speech emotion recognition (SER) is a critical task in human-computer
-interaction, sentiment analysis, call center analytics, and mental health
-monitoring. Unlike traditional speech recognition, SER aims to identify
-the underlying emotional state conveyed in a person's voice.
+This thesis formulates the SER task as a multimodal classification problem, where the input is a raw speech utterance and the output is a discrete emotion label. The core problem lies in determining whether an ASR-assisted audio-linguistic fusion pipeline can overcome the inherent limitations of pure acoustic models under a strictly speaker-independent evaluation protocol. Specifically, this research investigates the hypothesis that extracting linguistic cues via an explicit ASR bottleneck—despite the presence of transcription noise—can provide a robust semantic anchor that mitigates acoustic variance and improves emotion classification accuracy for unseen speakers in the Vietnamese language.
 
-\section{Challenge in Vietnamese SER}
-Vietnamese SER remains a challenging problem due to three main factors:
-(1) limited availability of large-scale, high-quality annotated datasets,
-(2) severe speaker leakage in historical benchmarks which inflates model
-performance, and (3) high acoustic similarity between specific emotion
-classes (e.g., Sadness and Neutrality) due to narrow pitch ranges.
+\section{Research Questions}
+To systematically explore this problem, this thesis is driven by the following research questions:
+\begin{itemize}
+    \item \textbf{RQ1: Does the proposed Dual-stream Feature Aggregation (DFAT) audio-linguistic fusion method outperform pure acoustic baselines under a strict speaker-independent protocol?} This question tests the fundamental hypothesis that combining acoustic features with ASR-derived text yields a statistically significant improvement over models that rely solely on audio, ensuring that the performance gains are not artifacts of speaker memorization.
+    \item \textbf{RQ2: How does inherent noise from ASR transcription affect the reliability of the linguistic stream in emotion classification?} By investigating failure cases and transcription errors, this question aims to understand the vulnerability of the fusion pipeline when the ASR system struggles with highly emotional or distorted Vietnamese speech.
+    \item \textbf{RQ3: What is the trade-off between recognition accuracy and inference latency when moving from acoustic-only to multi-stream models?} This question addresses the practical deployment considerations, quantifying the computational overhead introduced by the ASR component relative to the performance benefits it provides.
+\end{itemize}
 
-\section{Thesis Scope}
-Traditional audio-only baselines utilizing classical machine learning or
-even complex deep learning models are fundamentally constrained by the
-acoustic ambiguities of human speech. To overcome this, incorporating
-linguistic information provides a complementary dimension. However, without
-ground-truth transcriptions in real-world scenarios, leveraging Automatic
-Speech Recognition (ASR) is necessary. The direction of combining audio
-with ASR-derived text (ASR-assisted audio-linguistic fusion) rigorously
-tests whether noisy, inferred language can still provide a statistically
-significant regularization effect on the acoustic signal.
+\section{Objectives and Scope}
+The primary objective of this thesis is to construct and validate a robust, ASR-assisted audio-linguistic fusion framework for Vietnamese SER. The scope of this research is strictly bounded to speaker-independent evaluation on the Vietnamese Speech Emotion Corpus (ViSEC). 
+
+The systematic objectives include: First, establishing a rigorously controlled, leak-free evaluation protocol to ensure that models are evaluated on their ability to generalize to unseen speakers. Second, benchmarking state-of-the-art pure acoustic architectures against the proposed fusion methodology to empirically measure the value of the linguistic stream. Third, conducting a comprehensive error analysis to map out the failure modes of the pipeline, particularly concerning ASR inaccuracies. Finally, evaluating the operational feasibility of the proposed system by analyzing the trade-off between classification accuracy and computational latency. 
 
 \section{Contributions}
-This thesis contributes to the field by:
+This thesis makes the following distinct academic contributions to the field of Vietnamese speech processing:
 \begin{itemize}
-    \item Establishing a strict, integrity-checked, speaker-independent benchmark for Vietnamese SER.
-    \item Proposing DFAT, an ASR-assisted audio-linguistic fusion pipeline that enhances classification by leveraging text generated directly from speech.
-    \item Providing deep error analysis regarding ASR noise propagation and specific emotional class confusions.
+    \item \textbf{A Rigorous Speaker-Independent Benchmark:} We establish a strict, reproducible evaluation protocol for the ViSEC dataset, providing a realistic assessment of deep learning models by completely eliminating speaker identity leakage.
+    \item \textbf{An ASR-Assisted Audio-Linguistic Fusion Framework:} We propose and validate the DFAT pipeline, demonstrating that integrating noisy, ASR-derived text with acoustic representations serves as a powerful regularizer, successfully surpassing deep acoustic baselines in recognizing emotions of unseen Vietnamese speakers.
+    \item \textbf{Systematic Error Analysis and Deployment Profiling:} We provide qualitative insights into the specific mechanisms of emotion misclassification in tonal languages, coupled with a quantitative profiling of the accuracy-latency trade-offs, guiding future research toward practical real-time implementations.
 \end{itemize}
+
+\section{Thesis Organization}
+The remainder of this thesis is structured as follows. Chapter 2 reviews the related literature on classical speech emotion recognition, deep acoustic models, and audio-linguistic fusion strategies. Chapter 3 details the methodology, encompassing the dataset audit, the speaker-independent split protocol, and the architectural design of the proposed DFAT pipeline. Chapter 4 presents the experimental setup, benchmark results, and comprehensive ablation studies. Chapter 5 discusses the threats to validity and the limitations of the current research. Finally, Chapter 6 concludes the thesis, summarizing the key findings and outlining potential avenues for future work.
 
 \chapter{Related Work}
 \section{Classical Approaches}
@@ -127,24 +132,6 @@ The advent of deep learning introduced architectures capable of learning represe
 \section{Audio-Linguistic Fusion}
 Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition (e.g., PhoWhisper \cite{nguyen2024phowhisper}) to infer text from audio, followed by semantic embedding models like PhoBERT \cite{nguyen2020phobert}, merging both streams to achieve superior classification performance.
 
-\chapter{Objectives}
-\section{Research Questions}
-This thesis seeks to answer the following research questions:
-\begin{itemize}
-    \item \textbf{RQ1}: Does the proposed DFAT audio-linguistic fusion method outperform baseline models under a strict speaker-independent protocol?
-    \item \textbf{RQ2}: How does the inherent noise from ASR transcription affect the reliability of the linguistic stream in emotion classification?
-    \item \textbf{RQ3}: What is the trade-off between recognition accuracy and inference latency when moving from acoustic-only to multi-stream models?
-\end{itemize}
-
-\section{Specific Objectives}
-To systematically address the challenges of Vietnamese SER, this thesis defines the following measurable objectives:
-\begin{itemize}
-    \item \textbf{Objective 1}: Construct and validate a strict speaker-independent evaluation pipeline to eliminate identity leakage.
-    \item \textbf{Objective 2}: Benchmarking and comparing the performance of classical baselines (MFCC+RF), deep audio models (ECAPA-TDNN), and proposed audio-linguistic fusion (DFAT).
-    \item \textbf{Objective 3}: Evaluate the specific impact of ASR-derived text within the DFAT pipeline through targeted ablation studies.
-    \item \textbf{Objective 4}: Analyze failure cases and confusion matrices to understand the mechanisms of misclassification across emotion classes.
-    \item \textbf{Objective 5}: Quantify the trade-off between recognition accuracy and computational cost (latency) for practical deployment considerations.
-\end{itemize}
 
 \chapter{Materials and Methods}
 
