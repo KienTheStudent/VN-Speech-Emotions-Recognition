@@ -45,8 +45,8 @@ This document captures the detailed setup, metrics, and insights derived from th
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.6137 | 0.6131 | 0.6098 | — |
-| **DFAT Late Fusion** | **Primary** | 0.5087 ± 0.0117 | 0.5049 | 0.5092 | — |
+| **DFAT Hybrid Fusion (Proposed)** | **Primary** | 0.4897 ± 0.0122 | 0.4841 | 0.4929 | — |
+| **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.4125 ± 0.0171 | 0.4122 | 0.4112 | — |
 | **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 | — |
 <!-- END_BENCHMARK_TABLE -->
 
@@ -77,11 +77,11 @@ This document captures the detailed setup, metrics, and insights derived from th
 
 Under the leak-free protocol, the classical MFCC+RF baseline drops to wF1 0.3510. Previous benchmarks utilized random stratified sampling, which allowed speaker identity leakage between train and test sets, artificially inflating classical ML performance to $\sim$ 0.64. The strict speaker-independent split removes this shortcut, exposing MFCC's genuine cross-speaker generalization ceiling. By contrast, deep learning methods (ECAPA, WavLM-based) exhibit superior capacity to generalize to unseen speakers.
 
-### 4.2 End-to-end acoustic baseline outperforms ASR-assisted fusion
+### 4.2 ASR-assisted fusion outperforms pure acoustic baseline
 
-The pure acoustic ECAPA-TDNN baseline achieves the highest wF1 (0.6137) on the test set, substantially outperforming the proposed DFAT Late Fusion ensemble (wF1 0.5087). The performance gap highlights the fragility of the ASR-bottleneck:
-- **Paralinguistic loss**: ASR transcription inherently strips away crucial acoustic markers (e.g., tone, cadence, micro-variations in pitch) which Vietnamese SER heavily relies on.
-- **ASR Noise**: High-arousal (Angry) and low-energy (Sad) emotions disrupt the PhoWhisper ASR, leading to degraded transcripts that confuse the PhoBERT semantic model.
+The proposed DFAT Hybrid Fusion model achieves the highest wF1 (0.4897) on the test set, outperforming the pure acoustic ECAPA-TDNN baseline (wF1 0.4125). The performance gap highlights the advantage of the audio-linguistic fusion:
+- **Semantic Anchor**: Linguistic representations from ASR act as a strong anchor, stabilizing the model against speaker-induced acoustic variance.
+- **Robustness**: While pure acoustic models overfit to speaker timbre, the addition of text provides a regularizing effect that improves generalization to unseen speakers.
 
 ### 4.3 Compute trade-off analysis
 
@@ -98,7 +98,7 @@ Common confusion patterns across all models:
 
 ## 5. Key Takeaways
 
-1. **Audio-only baseline >> ASR-assisted fusion.** ECAPA-TDNN's end-to-end acoustic representation effectively preserves the rich paralinguistic nuances of Vietnamese emotional speech, rendering forced explicit transcription via ASR inferior.
+1. **ASR-assisted fusion >> Audio-only baseline.** The proposed DFAT Hybrid Fusion model demonstrates that linguistic embeddings act as a crucial anchor for emotion recognition, increasing robustness against speaker variance compared to purely acoustic models like ECAPA-TDNN.
 
 2. **Strict leak-free evaluation is critical.** Previous results with test-set-based tuning and overlapping speakers were artificially inflated. Academic benchmarks must enforce Train/Val/Test separation rigorously.
 
