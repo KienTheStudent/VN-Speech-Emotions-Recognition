@@ -9,7 +9,7 @@ This repository implements and evaluates multiple Speech Emotion Recognition app
 To present a unified narrative, this repository is organized into three main artifacts:
 1. **Academic Report (`Report_SER.tex`)**: The formal, academic source of truth detailing the motivation, methodology, and exhaustive findings.
 2. **Evaluation Pipeline (Scripts)**: The raw Python scripts (`benchmark_methods_gpu.py`, `DFAT_Hybrid_Fusion/`) that enforce the strict, reproducible evaluation protocol.
-3. **Live Demo (`internal/SER.ipynb`)**: An interactive Jupyter Notebook serving purely as a demonstration of the inference pipeline and live audio evaluation.
+3. **Academic Companion Notebook (`internal/SER.ipynb`)**: An interactive Jupyter Notebook serving as an academic companion, featuring deep Exploratory Data Analysis (EDA), qualitative outputs, and a live demonstration of the inference pipeline.
 
 ## Research Narrative
 
