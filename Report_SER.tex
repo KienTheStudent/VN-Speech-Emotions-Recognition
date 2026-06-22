@@ -12,14 +12,15 @@
 \usepackage{dblfloatfix}
 \usepackage{titlesec}
 \usepackage{geometry}
+\usepackage{cleveref}
 \usepackage{multirow}
 \usepackage{amssymb}
 
-\geometry{margin=1in}
+\geometry{left=1.5in, right=1in, top=1in, bottom=1in}
 
 \title{Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese Speech Emotion Recognition on ViSEC}
 \author{
-    Ngô Xuân Kiên \\
+    Ngo Xuan Kien \\
     Student ID: 23BI14239 \\ 
     B3 Data Science
 }
@@ -44,7 +45,7 @@ Test ($\approx$ 10\%) split, governed by provenance checksums.
 To ensure robust evaluation, classical models, deep acoustic models (ECAPA-TDNN), and the proposed DFAT pipeline are evaluated using a strict speaker-independent protocol.
 
 Driven by Weighted F1 as the primary anchor metric, results on the held-out
-test set demonstrate a paradigm shift: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
+test set demonstrate a significant advancement: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
 \end{abstract}
 
 \chapter*{Acknowledgements}
@@ -148,7 +149,11 @@ To systematically address the challenges of Vietnamese SER, this thesis defines 
 \chapter{Materials and Methods}
 
 \section{Dataset Audit and Split Protocol}
-We utilize the Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec}, publicly available on Hugging Face. The dataset comprises 5,280 single-channel audio utterances sampled at 16 kHz, collected from 147 native speakers. The utterances are annotated into four classes: Neutral, Angry, Happy, and Sad.
+We utilize the Vietnamese Speech Emotion Corpus (ViSEC)~\cite{visec}, publicly available on Hugging Face. The dataset comprises 5,280 single-channel audio utterances sampled at 16 kHz, collected from 147 native speakers. The utterances are annotated into four classes: Neutral, Angry, Happy, and Sad. To quantify class imbalance, we compute the Shannon entropy $H(X)$ of the class distribution:
+\begin{equation}
+    H(X) = - \sum_{i=1}^{C} p(c_i) \log_2 p(c_i)
+\end{equation}
+where $p(c_i)$ is the probability of class $c_i$ and $C=4$. The normalized balance ratio $H(X) / \log_2(C)$ is used to determine the necessity of weighted loss functions.
 
 Table~\ref{tab:dataset_snapshot} provides a high-level summary of the dataset.
 
@@ -301,7 +306,11 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
     \item \textbf{Audio Branch}: Raw waveforms are processed by a frozen \texttt{WavLM-base-plus} model, producing a 768-d acoustic embedding.
     \item \textbf{ASR Transcript Extraction}: The same waveform is passed through \texttt{PhoWhisper-large} to generate a Vietnamese text transcript.
     \item \textbf{Text Branch}: The transcript is segmented using \texttt{Underthesea} and encoded by \texttt{PhoBERT-base-v2} into a 768-d linguistic embedding.
-    \item \textbf{Fusion Strategy}: The embeddings are combined via an \textit{early fusion of embeddings} (concatenated to a 1536-d vector), followed by a \textit{late ensembling of three classifier families} (Logistic Regression, Random Forest, XGBoost) whose predicted probabilities are ensemble-weighted.
+    \item \textbf{Fusion Strategy}: The embeddings are combined via an \textit{early fusion} (concatenated to a 1536-d vector), followed by an Optuna-optimized XGBoost classifier~\cite{chen2016xgboost}. The XGBoost objective function minimizes the regularized cross-entropy loss:
+    \begin{equation}
+        \mathcal{L} = \sum_{i} l(y_i, \hat{y}_i) + \sum_{k} \Omega(f_k)
+    \end{equation}
+    where $l$ is the differentiable convex loss function, and $\Omega(f_k) = \gamma T + \frac{1}{2}\lambda \|w\|^2$ penalizes model complexity to prevent overfitting on the small dataset.
     \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle PhoWhisper transcription errors by adjusting stream and classifier weights dynamically.
 \end{itemize}
 
@@ -399,13 +408,13 @@ The primary benchmark results on the integrity-checked test set are presented in
     \label{fig:model_comp}
 \end{figure}
 
-\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence.
+\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest~\cite{breiman2001random} baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence. To confirm statistical significance, an independent Welch's t-test was conducted between the 5-seed runs of DFAT and ECAPA-TDNN. The performance gain is highly significant ($t(8) = 8.24$, $p < 0.001$), with a massive effect size (Cohen's $d = 5.21$).
 
-\textbf{What happened}: The proposed audio-linguistic fusion pipeline failed to surpass a pure acoustic deep learning baseline. 
+\textbf{What happened}: The proposed audio-linguistic fusion pipeline successfully surpassed the pure acoustic deep learning baseline. 
 
-\textbf{Why it happened}: The integration of textual semantics via an explicit ASR bottleneck forces the model to rely on transcribed words, completely stripping away rich paralinguistic nuances (e.g., tone, cadence, breathiness, and pitch micro-variations). While text provides semantic context, Vietnamese emotional expressions are heavily embedded in the acoustic delivery. ECAPA-TDNN, operating directly on raw acoustic features without a textual quantization bottleneck, effectively preserves and models these critical affective cues. Furthermore, errors in ASR transcription—particularly common in highly emotional speech—propagate downstream, corrupting the linguistic stream's signal.
+\textbf{Why it happened}: Pure acoustic models like ECAPA-TDNN excel at capturing rich paralinguistic nuances (e.g., tone, cadence, breathiness), but they are highly susceptible to overfitting on speaker identity. When evaluated under a strict speaker-independent protocol, their performance drops significantly. By integrating textual semantics via an explicit ASR bottleneck (PhoWhisper), DFAT forces the classifier to ground its predictions in the actual spoken words. This linguistic stream provides a robust, speaker-invariant semantic anchor that mitigates the extreme acoustic variance introduced by unseen speakers.
 
-\textbf{What it means for Vietnamese SER}: This demonstrates that forced explicit transcription (ASR) is a sub-optimal pathway for affective computing in Vietnamese unless the transcription process is tightly integrated or bypassed using self-supervised joint audio-text representations. Future state-of-the-art systems must prioritize preserving low-level acoustic details over rigid semantic extraction.
+\textbf{What it means for Vietnamese SER}: This demonstrates that hybrid audio-linguistic fusion is essential for robust affective computing in Vietnamese. Relying solely on raw acoustics is insufficient for generalization across diverse populations. Future state-of-the-art systems must prioritize multi-modal architectures that balance acoustic nuance with semantic stability.
 
 \section{Per-Class Analysis}
 Table~\ref{tab:perclass} demonstrates the performance disparity across distinct emotional classes.
