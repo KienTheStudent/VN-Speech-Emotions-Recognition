@@ -133,7 +133,7 @@ plt.close(fig)
 # ── Plot 6: Per-class F1 Comparison ──────────────────────────────────────────
 print("  [6/11] Per-class F1 comparison...")
 ecapa_report = next(r for r in ranked if r["method"].startswith("ECAPA-TDNN"))["representative_run"]["classification_report"]
-dfat_report = next(r for r in ranked if r["method"] == "DFAT Late Fusion")["representative_run"]["classification_report"]
+dfat_report = next(r for r in ranked if "DFAT" in r["method"])["representative_run"]["classification_report"]
 
 ecapa_f1 = [ecapa_report[e]["f1-score"] for e in EMOTION_ORDER]
 dfat_f1 = [dfat_report[e]["f1-score"] for e in EMOTION_ORDER]
@@ -142,7 +142,7 @@ x = np.arange(len(EMOTION_LABELS))
 width = 0.35
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.bar(x - width / 2, ecapa_f1, width, label="ECAPA-TDNN", color="#4C72B0")
-ax.bar(x + width / 2, dfat_f1, width, label="DFAT Late Fusion", color="#C44E52")
+ax.bar(x + width / 2, dfat_f1, width, label="DFAT Hybrid Fusion", color="#C44E52")
 ax.set_xticks(x)
 ax.set_xticklabels(EMOTION_LABELS)
 ax.set_ylabel("F1 Score")
@@ -155,9 +155,12 @@ plt.close(fig)
 
 # ── Plot 7: Confusion Matrices ───────────────────────────────────────────────
 print("  [7/11] Confusion matrices...")
-for model_name, key in [("ECAPA-TDNN (simplified implementation)", "ecapa"), ("DFAT Late Fusion", "dfat")]:
-    result = next(r for r in ranked if r["method"] == model_name)
-    cm = np.array(result["representative_run"]["confusion_matrix"])
+for model_name, key in [("ECAPA-TDNN (simplified implementation)", "ecapa"), ("DFAT Hybrid Fusion (Proposed)", "dfat")]:
+    if key == "dfat":
+        run_data = next(r for r in ranked if "DFAT" in r["method"])["representative_run"]
+    else:
+        run_data = next(r for r in ranked if r["method"] == model_name)["representative_run"]
+    cm = np.array(run_data["confusion_matrix"])
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=EMOTION_LABELS, yticklabels=EMOTION_LABELS, ax=ax)
@@ -170,7 +173,7 @@ for model_name, key in [("ECAPA-TDNN (simplified implementation)", "ecapa"), ("D
 
 # ── Plot 8: Top Confusion Pairs ──────────────────────────────────────────────
 print("  [8/11] Top confusion pairs...")
-dfat_cm = np.array(next(r for r in ranked if r["method"] == "DFAT Late Fusion")["representative_run"]["confusion_matrix"])
+dfat_cm = np.array(next(r for r in ranked if "DFAT" in r["method"])["representative_run"]["confusion_matrix"])
 pairs = []
 for i in range(4):
     for j in range(4):
@@ -183,7 +186,7 @@ fig, ax = plt.subplots(figsize=(8, 4))
 labels, counts = zip(*top_pairs)
 ax.barh(labels[::-1], counts[::-1], color="#C44E52", edgecolor="white")
 ax.set_xlabel("Misclassification Count")
-ax.set_title("Top Confusion Pairs (DFAT Late Fusion)")
+ax.set_title("Top Confusion Pairs (DFAT Hybrid Fusion)")
 fig.tight_layout()
 fig.savefig(OUT / "top_confusion_pairs.png")
 plt.close(fig)
@@ -209,9 +212,9 @@ print("  [10/11] Seed stability plot...")
 # RF has 5-seed data; ECAPA and DFAT have 1 seed each (no variance to plot)
 rf_result = next(r for r in ranked if r["method"] == "MFCC+RandomForest")
 ecapa_result = next(r for r in ranked if r["method"].startswith("ECAPA-TDNN"))
-dfat_result = next(r for r in ranked if r["method"] == "DFAT Late Fusion")
+dfat_result = next(r for r in ranked if "DFAT" in r["method"])
 
-model_names = ["MFCC+RF", "ECAPA-TDNN", "DFAT Late"]
+model_names = ["MFCC+RF", "ECAPA-TDNN", "DFAT Hybrid"]
 means = [rf_result["f1_weighted_mean"], ecapa_result["f1_weighted_mean"], dfat_result["f1_weighted_mean"]]
 stds_plot = [rf_result["f1_weighted_std"], ecapa_result["f1_weighted_std"], dfat_result["f1_weighted_std"]]
 n_seeds_list = [rf_result["n_seeds"], ecapa_result["n_seeds"], dfat_result["n_seeds"]]
