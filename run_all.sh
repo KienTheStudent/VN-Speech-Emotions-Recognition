@@ -3,7 +3,6 @@ set -e
 
 echo "Starting downstream tasks..."
 
-source ~/miniconda3/etc/profile.d/conda.sh
 conda activate ColabVENV
 
 echo "0. Pre-transcribing all audio using batched ASR..."
