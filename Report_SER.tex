@@ -371,7 +371,7 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
         \mathcal{L} = \sum_{i} l(y_i, \hat{y}_i) + \sum_{k} \Omega(f_k)
     \end{equation}
     where $l$ is the differentiable convex loss function, and $\Omega(f_k) = \gamma T + \frac{1}{2}\lambda \|w\|^2$ penalizes model complexity to prevent overfitting on the small dataset.
-    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The ensemble allows the system to gracefully combine strengths of different classifier families and handle PhoWhisper transcription errors by adjusting stream and classifier weights dynamically.
+    \item \textbf{Rationale}: This design is logical because while acoustic features capture the physical ``how'' of the speech (pitch, energy), the ASR branch infers the ``what'' (lexical content). The XGBoost classifier learns to dynamically weight acoustic and linguistic features based on their predictive power, effectively handling cases where the ASR stream produces noisy or incomplete transcripts.
 \end{itemize}
 
 \begin{figure}[h]
@@ -422,28 +422,57 @@ To summarize the evaluated pipelines, Figure~\ref{fig:pipeline_comp} provides a 
 
 \begin{figure}[h]
 \centering
-\begin{tcolorbox}[colback=gray!5!white, colframe=gray!50!black, 
-                  title={\textbf{Pipeline Comparison}}, 
-                  fonttitle=\bfseries\sffamily,
-                  width=0.95\textwidth]
-\small\sffamily
-\begin{tabular}{p{3.2cm}p{3.2cm}p{4cm}}
-\toprule
-\textbf{MFCC + RF} & \textbf{ECAPA-TDNN} & \textbf{DFAT (Proposed)} \\
-\midrule
-\textcolor{green!60!black}{🟢} Audio & \textcolor{green!60!black}{🟢} Audio & \textcolor{green!60!black}{🟢} Audio (WavLM) \\
-$\downarrow$ & $\downarrow$ & \textcolor{orange}{🟡} ASR (PhoWhisper) \\
-\textcolor{green!60!black}{🟢} MFCC & \textcolor{green!60!black}{🟢} Log-mel & \textcolor{orange}{🟡} Text (PhoBERT) \\
-$\downarrow$ & $\downarrow$ & $\downarrow$ \\
-\textcolor{green!60!black}{🟢} Mean pool & \textcolor{green!60!black}{🟢} TDNN+SE & \textcolor{green!60!black}{🟢}\textcolor{orange}{🟡} Concat (1536-d) \\
-$\downarrow$ & $\downarrow$ & $\downarrow$ \\
-\textcolor{green!60!black}{🟢} RF (300) & \textcolor{green!60!black}{🟢} FC (192$\rightarrow$4) & \textcolor{green!60!black}{🟢} XGBoost \\
-\midrule
-\textasciitilde0.35 wF1 & \textasciitilde0.41 wF1 & \textasciitilde0.49 wF1 \\
-CPU: <1ms & GPU: \textasciitilde5ms & GPU: \textasciitilde200ms \\
-\bottomrule
-\end{tabular}
-\end{tcolorbox}
+\begin{tikzpicture}[
+    box/.style={rectangle, draw, rounded corners, minimum width=3.5cm, 
+                minimum height=0.6cm, align=center, font=\footnotesize\sffamily},
+    arrow/.style={->, >=Stealth, thick},
+    pipeline/.style={fill=#1!10, draw=#1!50!black},
+    label/.style={font=\footnotesize\bfseries\sffamily}
+]
+
+% Pipeline A: MFCC+RF
+\begin{scope}[xshift=-4.5cm]
+    \node[label, green!60!black] at (0,2) {MFCC + RF};
+    \node[box, pipeline=green] (a1) at (0,1.2) {Audio (16kHz)};
+    \node[box, pipeline=green] (a2) at (0,0.4) {MFCC (40-d)};
+    \node[box, pipeline=green] (a3) at (0,-0.4) {Mean Pooling};
+    \node[box, pipeline=green] (a4) at (0,-1.2) {RandomForest (300)};
+    \node[label] at (0,-2) {\textasciitilde0.35 wF1};
+    \draw[arrow, green!60!black] (a1) -- (a2);
+    \draw[arrow, green!60!black] (a2) -- (a3);
+    \draw[arrow, green!60!black] (a3) -- (a4);
+\end{scope}
+
+% Pipeline B: ECAPA
+\begin{scope}[xshift=0cm]
+    \node[label, blue] at (0,2) {ECAPA-TDNN};
+    \node[box, pipeline=blue] (b1) at (0,1.2) {Audio (16kHz)};
+    \node[box, pipeline=blue] (b2) at (0,0.4) {Log-mel (80-bin)};
+    \node[box, pipeline=blue] (b3) at (0,-0.4) {TDNN + SE};
+    \node[box, pipeline=blue] (b4) at (0,-1.2) {FC (192$\rightarrow$4)};
+    \node[label] at (0,-2) {\textasciitilde0.41 wF1};
+    \draw[arrow, blue] (b1) -- (b2);
+    \draw[arrow, blue] (b2) -- (b3);
+    \draw[arrow, blue] (b3) -- (b4);
+\end{scope}
+
+% Pipeline C: DFAT
+\begin{scope}[xshift=4.5cm]
+    \node[label, red] at (0,2) {DFAT (Proposed)};
+    \node[box, pipeline=red] (c1) at (0,1.2) {Audio (16kHz)};
+    \node[box, pipeline=orange] (c2a) at (-0.8,0.4) {WavLM};
+    \node[box, pipeline=orange] (c2b) at (0.8,0.4) {PhoWhisper};
+    \node[box, pipeline=orange] (c3) at (0.8,-0.4) {PhoBERT};
+    \node[box, pipeline=red] (c4) at (0,-1.2) {XGBoost};
+    \node[label] at (0,-2) {\textasciitilde0.49 wF1};
+    \draw[arrow, red] (c1) -- (c2a);
+    \draw[arrow, orange] (c1) -- (c2b);
+    \draw[arrow, orange] (c2b) -- (c3);
+    \draw[arrow, red] (c2a) -- (c4);
+    \draw[arrow, red] (c3) -- (c4);
+\end{scope}
+
+\end{tikzpicture}
 \caption{High-level comparison of the three evaluated classification pipelines.}
 \label{fig:pipeline_comp}
 \end{figure}
@@ -469,25 +498,25 @@ Table~\ref{tab:design_choices} summarizes the key hyperparameters across all thr
 
 \begin{table*}[ht]
 \centering
-\small
-\begin{tabular}{p{2.8cm} p{2.2cm} p{3.5cm} p{5.5cm}}
+\footnotesize
+\begin{tabular}{p{2.5cm} p{2cm} p{3.5cm} p{5.5cm}}
 \toprule
 \textbf{Pipeline} & \textbf{Parameter} & \textbf{Why it matters} & \textbf{Why this value} \\
 \midrule
 \multirow{2}{*}{MFCC + RF}
-& \texttt{n\_mfcc=40} & Dimensionality of the acoustic input vector. & 40 coefficients capture sufficient spectral resolution while keeping the feature space small enough for a classical classifier on $\approx$4k samples. \\
-& \texttt{n\_est.=300} & Controls ensemble diversity and variance. & Provides stable variance reduction; beyond 300 trees, returns diminish while CPU latency grows. \\
+& \texttt{n\_mfcc=40} & Dimensionality of acoustic input. & 40 coefficients capture sufficient spectral resolution for a classical classifier on $\approx$4k samples. \\
+& \texttt{n\_est.=300} & Controls ensemble variance. & Provides stable variance reduction; beyond 300 trees, returns diminish while CPU latency grows. \\
 \midrule
 \multirow{4}{*}{ECAPA-TDNN}
-& \texttt{channels=256} & Width of TDNN convolutional blocks. & Balances representational capacity against overfitting risk on the small ViSEC training set. \\
-& \texttt{emb\_size=192} & Bottleneck before classifier. & Forces the model to distill only robust emotional characteristics, preventing speaker memorization. \\
-& \texttt{lr=3e-4} & Optimization step size (Adam). & Standard stable rate for audio spectrograms; higher values cause divergence, lower values stall. \\
+& \texttt{channels=256} & Width of TDNN blocks. & Balances capacity against overfitting risk on the small ViSEC dataset. \\
+& \texttt{emb\_size=192} & Bottleneck size. & Forces the model to distill robust emotional characteristics, preventing speaker memorization. \\
+& \texttt{lr=3e-4} & Optimization step size. & Standard stable rate; higher values cause divergence, lower values stall. \\
 & \texttt{patience=20} & Epochs before LR decay. & Buffers against stochastic noise in validation F1 on small-data training runs. \\
 \midrule
 \multirow{3}{*}{DFAT Hybrid Fusion}
-& \texttt{fusion=1536-d} & Concatenated embedding size. & Natural output of WavLM-base (768-d) + PhoBERT-base (768-d); avoids lossy down-projection. \\
-& \texttt{PhoWhisper-large} & ASR transcript quality. & Best quality for Vietnamese text; the large parameter count (~1.5B) is justified because an inferior model degrades text quality catastrophically. \\
-& \texttt{XGBoost} (Optuna) & Classifier architecture. & A single XGBoost classifier was chosen over complex ensembles to reduce latency and prevent overfitting on small data. \\
+& \texttt{fusion=1536-d} & Concatenated embedding size. & Natural output of WavLM-base (768-d) + PhoBERT-base (768-d). \\
+& \texttt{PhoWhisper-L} & ASR transcript quality. & Best quality for Vietnamese text; an inferior model degrades text quality catastrophically. \\
+& \texttt{XGBoost} & Classifier architecture. & A single XGBoost classifier reduces latency and prevents overfitting on small data. \\
 \bottomrule
 \end{tabular}
 \caption{Design choices and rationale for key hyperparameters.}
