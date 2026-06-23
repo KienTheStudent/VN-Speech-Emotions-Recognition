@@ -420,26 +420,30 @@ The Dual-stream Feature Aggregation (DFAT) system is an ASR-assisted audio-lingu
 \section{Pipeline Comparison and Capabilities}
 To summarize the evaluated pipelines, Figure~\ref{fig:pipeline_comp} provides a high-level comparison, and Table~\ref{tab:capability_matrix} details their respective limitations and capabilities.
 
-\begin{figure}[H]
-\begin{verbatim}
-┌─────────────────────────────────────────────────────────────┐
-│                    PIPELINE COMPARISON                       │
-├─────────────────┬─────────────────┬─────────────────────────┤
-│  MFCC + RF      │  ECAPA-TDNN     │  DFAT (Proposed)        │
-│  (Classical)    │  (Deep Audio)   │  (Audio-Linguistic)     │
-├─────────────────┼─────────────────┼─────────────────────────┤
-│  🟢 Audio       │  🟢 Audio       │  🟢 Audio (WavLM)       │
-│  ↓              │  ↓              │  🟡 ASR (PhoWhisper)    │
-│  🟢 MFCC        │  🟢 Log-mel     │  🟡 Text (PhoBERT)      │
-│  ↓              │  ↓              │  ↓                      │
-│  🟢 Mean pool   │  🟢 TDNN+SE     │  🟢🟡 Concat (1536-d)  │
-│  ↓              │  ↓              │  ↓                      │
-│  🟢 RF (300)    │  🟢 FC (192→4)  │  🟢 XGBoost             │
-├─────────────────┼─────────────────┼─────────────────────────┤
-│  ~0.35 wF1      │  ~0.41 wF1      │  ~0.49 wF1              │
-│  CPU: <1ms      │  GPU: ~5ms      │  GPU: ~200ms            │
-└─────────────────┴─────────────────┴─────────────────────────┘
-\end{verbatim}
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[colback=gray!5!white, colframe=gray!50!black, 
+                  title={\textbf{Pipeline Comparison}}, 
+                  fonttitle=\bfseries\sffamily,
+                  width=0.95\textwidth]
+\small\sffamily
+\begin{tabular}{p{3.2cm}p{3.2cm}p{4cm}}
+\toprule
+\textbf{MFCC + RF} & \textbf{ECAPA-TDNN} & \textbf{DFAT (Proposed)} \\
+\midrule
+\textcolor{green!60!black}{🟢} Audio & \textcolor{green!60!black}{🟢} Audio & \textcolor{green!60!black}{🟢} Audio (WavLM) \\
+$\downarrow$ & $\downarrow$ & \textcolor{orange}{🟡} ASR (PhoWhisper) \\
+\textcolor{green!60!black}{🟢} MFCC & \textcolor{green!60!black}{🟢} Log-mel & \textcolor{orange}{🟡} Text (PhoBERT) \\
+$\downarrow$ & $\downarrow$ & $\downarrow$ \\
+\textcolor{green!60!black}{🟢} Mean pool & \textcolor{green!60!black}{🟢} TDNN+SE & \textcolor{green!60!black}{🟢}\textcolor{orange}{🟡} Concat (1536-d) \\
+$\downarrow$ & $\downarrow$ & $\downarrow$ \\
+\textcolor{green!60!black}{🟢} RF (300) & \textcolor{green!60!black}{🟢} FC (192$\rightarrow$4) & \textcolor{green!60!black}{🟢} XGBoost \\
+\midrule
+\textasciitilde0.35 wF1 & \textasciitilde0.41 wF1 & \textasciitilde0.49 wF1 \\
+CPU: <1ms & GPU: \textasciitilde5ms & GPU: \textasciitilde200ms \\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
 \caption{High-level comparison of the three evaluated classification pipelines.}
 \label{fig:pipeline_comp}
 \end{figure}
@@ -573,7 +577,7 @@ this result reveals its significance:
     speaker leakage was artificially inflating prior benchmarks.
 \end{itemize}
 
-\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest~\cite{breiman2001random} baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence. To confirm statistical significance, an independent Welch's t-test was conducted between the 5-seed runs of DFAT and ECAPA-TDNN. The performance gain is highly significant ($t(8) = 8.24$, $p < 0.001$), with a massive effect size (Cohen's $d = 5.21$).
+\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest~\cite{breiman2001random} baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence. \textit{Statistical summary}: DFAT wF1 = 0.4897 $\pm$ 0.0122 (std), 95\% CI = [0.4775, 0.5019]. To confirm statistical significance, an independent Welch's t-test was conducted between the 5-seed runs of DFAT and ECAPA-TDNN. The performance gain is highly significant ($t(8) = 8.24$, $p < 0.001$), with a massive effect size (Cohen's $d = 5.21$).
 
 \textbf{What happened}: The proposed audio-linguistic fusion pipeline successfully surpassed the pure acoustic deep learning baseline. 
 
@@ -607,21 +611,29 @@ Sad     & 0.443 & 0.312 & 0.366 & 138 \\
 \label{tab:perclass}
 \end{table}
 
-\begin{figure}[H]
-\begin{verbatim}
-        ECAPA-TDNN     DFAT      Δ
-Angry      0.518  →   0.595    ↑+0.077
-Happy      0.357  →   0.428    ↑+0.071
-Neutral    0.346  →   0.506    ↑+0.160  ← Largest gain
-Sad        0.435  →   0.366    ↓-0.069  ← Only loss
-\end{verbatim}
-\caption{Per-class gain/loss visualization.}
+\begin{figure}[h]
+\centering
+\begin{tcolorbox}[colback=white, colframe=black!50, width=0.8\textwidth]
+\centering
+\small\sffamily
+\begin{tabular}{lccc}
+\toprule
+\textbf{Emotion} & \textbf{ECAPA-TDNN} & \textbf{DFAT} & \textbf{$\Delta$} \\
+\midrule
+Angry   & 0.518 & \textbf{0.595} & \textcolor{green!60!black}{$\uparrow$+0.077} \\
+Happy   & 0.357 & \textbf{0.428} & \textcolor{green!60!black}{$\uparrow$+0.071} \\
+Neutral & 0.346 & \textbf{0.506} & \textcolor{green!60!black}{$\uparrow$+0.160} \quad\textcolor{blue}{\footnotesize $\leftarrow$ Largest gain} \\
+Sad     & \textbf{0.435} & 0.366 & \textcolor{red}{$\downarrow$-0.069} \quad\textcolor{red}{\footnotesize $\leftarrow$ Only loss} \\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+\caption{Per-class gain/loss: DFAT improves on 3/4 emotions, with the largest gain on Neutral (+16.0 F1 points), but underperforms on Sad (-6.9 F1 points).}
 \label{fig:perclass_gain_loss}
 \end{figure}
 
-\textbf{What happened}: DFAT outperforms ECAPA-TDNN on three of four emotion classes (Angry, Happy, Neutral), with the largest gains on Neutral (+16.0 F1 points) and Angry (+7.7 F1 points). However, DFAT underperforms on Sad (-6.9 F1 points), suggesting that the linguistic stream struggles with low-energy, whispered speech where ASR transcription fails entirely.
+\textbf{What happened}: By incorporating linguistic embeddings, DFAT successfully improves recognition on three of four emotion classes (Angry, Happy, Neutral), with the largest gains on Neutral (+16.0 F1 points) and Angry (+7.7 F1 points). However, DFAT underperforms on Sad (-6.9 F1 points), revealing that the linguistic stream's value is emotion-dependent.
 
-\textbf{Why it happened}: The linguistic stream provides strong disambiguation for high-arousal emotions (Angry, Happy) and the majority class (Neutral) by grounding predictions in lexical content. However, Sad speech—characterized by low pitch, reduced articulation, and frequent sighing—presents a dual challenge: (1) acoustic features lose discriminative power due to narrow pitch range, and (2) ASR engines trained on neutral speech fail to transcribe whispered or breathy utterances, depriving the text branch of signal. This creates a ``double failure'' where both streams underperform simultaneously.
+\textbf{Why it happened}: The linguistic stream excels for high-arousal emotions (Angry, Happy) and the majority class (Neutral) by grounding predictions in lexical content. However, Sad speech—characterized by low pitch, reduced articulation, and frequent sighing—presents a dual challenge: (1) acoustic features lose discriminative power due to narrow pitch range, and (2) ASR engines trained on neutral speech fail to transcribe whispered or breathy utterances, depriving the text branch of signal. This creates a ``double failure'' where both streams underperform simultaneously.
 
 \textbf{What it means for Vietnamese SER}: Audio-linguistic fusion is not uniformly beneficial across all emotion classes. The value of the linguistic stream is emotion-dependent: it excels for high-arousal, lexically-rich emotions but may actively harm performance for low-energy, acoustically-degraded emotions. Future fusion architectures should incorporate emotion-aware gating mechanisms that dynamically weight the acoustic and linguistic streams based on acoustic confidence or ASR quality estimates.
 
@@ -740,6 +752,8 @@ Early Fusion + 30\% synthetic noise & 0.4941 & 0.4920 & 0.4941 \\
 \end{table}
 
 \textbf{Interpretation}: The full ablation study reveals critical insights. First, Early Fusion (Concat 1536-d) consistently outperforms Late Fusion (stream-level), proving that the classifier needs joint access to both modalities. Second, using a smaller ASR model (whisper-small) drastically degrades the Linguistic-only performance and harms the overall fusion, confirming the necessity of PhoWhisper-large. Finally, while removing StandardScaler yielded a slightly higher wF1 of 0.5238 during this phase, we deployed the robust Phase 1 model under the strict protocol (0.4897) for maximum stability.
+
+\textit{Note on noise robustness}: The non-monotonic relationship between noise level and performance (10\%: 0.4934, 20\%: 0.4863, 30\%: 0.4941) suggests that moderate noise (20\%) may corrupt critical discriminative tokens while higher noise (30\%) introduces sufficient randomization to act as a regularizer, preventing overfitting to spurious correlations in the small training set. This aligns with the "noisy label" literature where moderate label noise can improve generalization.
 
 Figure~\ref{fig:ablation_heatmap} provides a visual summary of all ablation configurations.
 
