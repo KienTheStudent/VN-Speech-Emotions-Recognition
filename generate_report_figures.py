@@ -255,7 +255,7 @@ print("  [11/11] Latency vs quality scatter...")
 model_points = [
     ("MFCC+RF", rf_result["f1_weighted_mean"], 0.5),       # ~0.5M params
     ("ECAPA-TDNN", ecapa_result["f1_weighted_mean"], 20.8), # ~20.8M params
-    ("DFAT Late", dfat_result["f1_weighted_mean"], 473),    # ~473M params
+    ("DFAT Hybrid", dfat_result["f1_weighted_mean"], 473),    # ~473M params
 ]
 
 fig, ax = plt.subplots(figsize=(8, 5))

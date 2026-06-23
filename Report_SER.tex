@@ -19,6 +19,7 @@
 \usetikzlibrary{arrows.meta, positioning, decorations.pathmorphing}
 \usepackage{amssymb}
 \usepackage{tcolorbox}
+\usepackage{tocloft}
 
 \geometry{left=1.5in, right=1in, top=1in, bottom=1in}
 
@@ -48,7 +49,7 @@ speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
 Test ($\approx$ 10\%) split, governed by provenance checksums.
 To ensure robust evaluation, classical models, deep acoustic models (ECAPA-TDNN), and the proposed DFAT pipeline are evaluated using a strict speaker-independent protocol.
 
-Driven by Weighted F1 as the primary anchor metric, results on the held-out
+Driven by Weighted F1~as the primary anchor metric, results on the held-out
 test set demonstrate a significant advancement: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
 \end{abstract}
 
@@ -789,7 +790,7 @@ Figure~\ref{fig:ablation_heatmap} provides a visual summary of all ablation conf
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.85\linewidth]{report_images/ablation_heatmap.png}
-    \caption{Ablation heatmap: performance across fusion configurations and noise levels. Source: \texttt{ablation\_results.json}.}
+    \caption{Ablation heatmap: performance across fusion configurations and noise levels. \\ Source: \texttt{ablation\_results.json}.}
     \label{fig:ablation_heatmap}
 \end{figure}
 
@@ -798,7 +799,7 @@ Figure~\ref{fig:latency_quality} visualizes the quality vs. computational cost t
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.75\linewidth]{report_images/latency_vs_quality.png}
-    \caption{Quality vs. computational cost trade-off (log-scale parameters). Source: \texttt{benchmark\_results\_gpu.json}.}
+    \caption{Quality vs. computational cost trade-off (log-scale parameters). \\ Source: \texttt{benchmark\_results\_gpu.json}.}
     \label{fig:latency_quality}
 \end{figure}
 
@@ -807,7 +808,7 @@ Figure~\ref{fig:seed_stability} shows the seed stability of each pipeline.
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.75\linewidth]{report_images/seed_stability.png}
-    \caption{Seed stability: wF1 mean $\pm$ std across seeds. Source: \texttt{benchmark\_results\_gpu.json}.}
+    \caption{Seed stability: wF1 mean $\pm$ std across seeds. \\ Source: \texttt{benchmark\_results\_gpu.json}.}
     \label{fig:seed_stability}
 \end{figure}
 
@@ -858,7 +859,7 @@ This thesis systematically addressed Vietnamese SER through the construction of 
 \section{Limitations}
 While the proposed approach demonstrates strong empirical results, it exhibits several limitations:
 \begin{itemize}
-    \item \textbf{Computational Overhead}: The reliance on multiple large pre-trained models (WavLM, PhoWhisper-large at ~1.5B parameters, PhoBERT) incurs significant latency, rendering it unsuitable for resource-constrained edge devices.
+    \item \textbf{Computational Overhead}: The reliance on multiple large pre-trained models (WavLM, PhoWhisper-large at $\sim$1.5B parameters, PhoBERT) incurs significant latency, rendering it unsuitable for resource-constrained edge devices.
     \item \textbf{ASR Dependency}: The system's performance is strictly bounded by the accuracy of the underlying ASR model, which frequently struggles under extreme emotional prosody.
 \end{itemize}
 
