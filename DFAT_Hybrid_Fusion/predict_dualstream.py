@@ -74,7 +74,6 @@ def predict_emotion(audio_path, model_dir, asr_model="vinai/PhoWhisper-large"):
         metadata = json.load(f)
     
     emotion_labels = metadata['emotion_labels']
-    weights = metadata['ensemble_weights']
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -99,25 +98,20 @@ def predict_emotion(audio_path, model_dir, asr_model="vinai/PhoWhisper-large"):
     # Load scaler and transform
     with open(model_dir / 'scaler.pkl', 'rb') as f:
         scaler = pickle.load(f)
-    fused_features = scaler.transform(fused_features)
+    if isinstance(scaler, dict) and "ac" in scaler:
+        fused_features[:, :768] = scaler["ac"].transform(fused_features[:, :768])
+        fused_features[:, 768:] = scaler["tx"].transform(fused_features[:, 768:])
+    else:
+        fused_features = scaler.transform(fused_features)
     
     # Load classifiers
-    with open(model_dir / 'lr_model.pkl', 'rb') as f:
-        lr_model = pickle.load(f)
-    with open(model_dir / 'rf_model.pkl', 'rb') as f:
-        rf_model = pickle.load(f)
     with open(model_dir / 'xgb_model.pkl', 'rb') as f:
         xgb_model = pickle.load(f)
     
     # Predict
-    lr_proba = lr_model.predict_proba(fused_features)[0]
-    rf_proba = rf_model.predict_proba(fused_features)[0]
     xgb_proba = xgb_model.predict_proba(fused_features)[0]
     
-    # Ensemble
-    ensemble_proba = weights['xgb'] * xgb_proba + weights['rf'] * rf_proba + weights['lr'] * lr_proba
-    
-    return {label: float(prob) for label, prob in zip(emotion_labels, ensemble_proba)}
+    return {label: float(prob) for label, prob in zip(emotion_labels, xgb_proba)}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

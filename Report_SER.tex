@@ -175,7 +175,7 @@ The duration of speech utterances directly impacts the receptive field requireme
 To eliminate identity leakage, speakers are strictly partitioned. Figure~\ref{fig:speaker_hist} demonstrates the distribution of utterances per speaker across the Train, Validation, and Test splits, confirming no speaker overlap.
 
 \textbf{Scientific Rationale for Speaker-Independence}:
-In early SER literature, random shuffling was common. However, randomly splitting utterances inevitably places samples from the same speaker in both the training and test sets. When this occurs, deep neural networks rapidly learn to exploit \textit{speaker identity} (timbre, baseline pitch contour, habitual speaking rate) rather than learning generalized \textit{emotion semantics}. Essentially, the network degrades into a speaker recognition system. Enforcing a strict speaker-independent split prevents this identity leakage, ensuring the measured F1 score reflects true emotional generalization to unseen speakers, rather than mere acoustic memorization.
+In early SER literature, random shuffling was common. However, randomly splitting utterances inevitably places samples from the same speaker in both the training and test sets. When this occurs, deep neural networks rapidly learn to exploit \textit{speaker identity} (timbre, baseline pitch contour, habitual speaking rate) rather than learning generalized \textit{emotion semantics}. Essentially, the network degrades into a speaker recognition system. Enforcing a strict speaker-independent split prevents this identity leakage, ensuring the measured F1 score reflects true emotional generalization to unseen speakers, rather than mere acoustic memorization. Furthermore, the dataset exhibits a highly skewed distribution of utterances per speaker; to satisfy the required 80\% training data volume while preserving class balance, placing the most prolific speakers in the training set was mathematically necessary, resulting in fewer unique speakers in the training set (32) than in the validation set (68).
 
 \begin{figure}[h]
     \centering
@@ -413,16 +413,16 @@ Table~\ref{tab:perclass} demonstrates the performance disparity across distinct 
 \textbf{Emotion} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Sup.} \\
 \midrule
 \multicolumn{5}{l}{\textit{ECAPA-TDNN (Simplified)}} \\
-Angry   & 0.789 & 0.714 & 0.750 & 147 \\
-Happy   & 0.516 & 0.642 & 0.572 & 123 \\
-Neutral & 0.497 & 0.520 & 0.508 & 150 \\
-Sad     & 0.706 & 0.556 & 0.622 & 108 \\
+Angry   & 0.495 & 0.543 & 0.518 & 175 \\
+Happy   & 0.317 & 0.408 & 0.357 & 157 \\
+Neutral & 0.437 & 0.286 & 0.346 & 206 \\
+Sad     & 0.422 & 0.449 & 0.435 & 138 \\
 \midrule
 \multicolumn{5}{l}{\textit{DFAT Hybrid Fusion (Proposed)}} \\
-Angry   & 0.606 & 0.571 & 0.588 & 175 \\
-Happy   & 0.529 & 0.465 & 0.495 & 157 \\
-Neutral & 0.442 & 0.568 & 0.497 & 206 \\
-Sad     & 0.528 & 0.413 & 0.463 & 138 \\
+Angry   & 0.607 & 0.583 & 0.595 & 175 \\
+Happy   & 0.496 & 0.376 & 0.428 & 157 \\
+Neutral & 0.432 & 0.612 & 0.506 & 206 \\
+Sad     & 0.443 & 0.312 & 0.366 & 138 \\
 \bottomrule
 \end{tabular}
 \caption{Per-class performance comparison on test set.}
