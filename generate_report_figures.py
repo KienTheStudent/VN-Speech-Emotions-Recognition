@@ -27,8 +27,22 @@ ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "report_images"
 OUT.mkdir(exist_ok=True)
 
-sns.set_theme(style="whitegrid", font_scale=1.1)
-plt.rcParams.update({"font.size": 12, "figure.dpi": 300})
+plt.rcParams.update({
+    'figure.dpi': 150,
+    'savefig.dpi': 300,
+    'font.size': 11,
+    'font.family': 'serif',
+    'axes.titlesize': 13,
+    'axes.labelsize': 11,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+    'figure.facecolor': 'white',
+    'axes.facecolor': 'white',
+    'axes.edgecolor': '#333333',
+    'grid.color': '#CCCCCC',
+    'grid.alpha': 0.5,
+})
 
 EMOTION_ORDER = ["angry", "happy", "neutral", "sad"]
 EMOTION_LABELS = ["Angry", "Happy", "Neutral", "Sad"]
@@ -70,7 +84,7 @@ plt.close(fig)
 # ── Plot 2: Speaker Histogram ─────────────────────────────────────────────────
 print("  [2/11] Speaker histogram...")
 fig, ax = plt.subplots(figsize=(10, 5))
-for sp, color in zip(["Train", "Val", "Test"], ["#4C72B0", "#55A868", "#C44E52"]):
+for sp, color in zip(["Train", "Val", "Test"], ["#1565C0", "#2E7D32", "#C62828"]):
     sub = df[df["split"] == sp]
     counts = sub.groupby("speaker_id").size()
     ax.hist(counts, bins=20, alpha=0.6, label=sp, color=color, edgecolor="white")
@@ -102,7 +116,7 @@ plt.close(fig)
 print("  [4/11] Samples per speaker...")
 speaker_counts = df.groupby("speaker_id").size().sort_values(ascending=False)
 fig, ax = plt.subplots(figsize=(12, 4))
-ax.bar(range(len(speaker_counts)), speaker_counts.values, color="#4C72B0", width=1.0)
+ax.bar(range(len(speaker_counts)), speaker_counts.values, color="#1565C0", width=1.0)
 ax.set_xlabel("Speaker (sorted by contribution)")
 ax.set_ylabel("Number of Utterances")
 ax.set_title("Samples per Speaker (Descending)")
@@ -118,7 +132,7 @@ wf1s = [r["f1_weighted_mean"] for r in ranked]
 stds = [r["f1_weighted_std"] for r in ranked]
 
 fig, ax = plt.subplots(figsize=(8, 5))
-colors = ["#C44E52", "#4C72B0", "#55A868"]
+colors = ["#C62828", "#1565C0", "#2E7D32"]
 bars = ax.bar(methods, wf1s, yerr=stds, capsize=5, color=colors, edgecolor="white", width=0.5)
 for bar, val in zip(bars, wf1s):
     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
@@ -141,8 +155,8 @@ dfat_f1 = [dfat_report[e]["f1-score"] for e in EMOTION_ORDER]
 x = np.arange(len(EMOTION_LABELS))
 width = 0.35
 fig, ax = plt.subplots(figsize=(8, 5))
-ax.bar(x - width / 2, ecapa_f1, width, label="ECAPA-TDNN", color="#4C72B0")
-ax.bar(x + width / 2, dfat_f1, width, label="DFAT Hybrid Fusion", color="#C44E52")
+ax.bar(x - width / 2, ecapa_f1, width, label="ECAPA-TDNN", color="#1565C0")
+ax.bar(x + width / 2, dfat_f1, width, label="DFAT Hybrid Fusion", color="#C62828")
 ax.set_xticks(x)
 ax.set_xticklabels(EMOTION_LABELS)
 ax.set_ylabel("F1 Score")
@@ -184,7 +198,7 @@ top_pairs = pairs[:6]
 
 fig, ax = plt.subplots(figsize=(8, 4))
 labels, counts = zip(*top_pairs)
-ax.barh(labels[::-1], counts[::-1], color="#C44E52", edgecolor="white")
+ax.barh(labels[::-1], counts[::-1], color="#C62828", edgecolor="white")
 ax.set_xlabel("Misclassification Count")
 ax.set_title("Top Confusion Pairs (DFAT Hybrid Fusion)")
 fig.tight_layout()
@@ -220,7 +234,7 @@ stds_plot = [rf_result["f1_weighted_std"], ecapa_result["f1_weighted_std"], dfat
 n_seeds_list = [rf_result["n_seeds"], ecapa_result["n_seeds"], dfat_result["n_seeds"]]
 
 fig, ax = plt.subplots(figsize=(7, 5))
-colors = ["#55A868", "#4C72B0", "#C44E52"]
+colors = ["#2E7D32", "#1565C0", "#C62828"]
 for i, (name, mean, std, ns) in enumerate(zip(model_names, means, stds_plot, n_seeds_list)):
     marker = "o" if ns > 1 else "s"
     ax.errorbar(i, mean, yerr=std, fmt=marker, markersize=10, color=colors[i],
