@@ -45,7 +45,7 @@ This document captures the detailed setup, metrics, and insights derived from th
 <!-- START_BENCHMARK_TABLE -->
 | Method | Category | wF1 (mean ± std) | mF1 | Acc | E2E Latency |
 |--------|----------|------------------|-----|-----|-------------|
-| **DFAT Hybrid Fusion (Proposed)** | **Primary** | 0.4897 ± 0.0122 | 0.4841 | 0.4929 | — |
+| **DFAT Hybrid Fusion** | **Primary** | 0.4897 ± 0.0122 | 0.4841 | 0.4929 | — |
 | **ECAPA-TDNN (simplified implementation)** | **Primary** | 0.4125 ± 0.0171 | 0.4122 | 0.4112 | — |
 | **MFCC+RandomForest** | **Primary** | 0.3510 ± 0.0026 | 0.3365 | 0.3716 | — |
 <!-- END_BENCHMARK_TABLE -->
