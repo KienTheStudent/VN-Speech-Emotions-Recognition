@@ -4,8 +4,9 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
+\usepackage{lmodern}
+\usepackage{url}
 \usepackage{lineno}
-\usepackage{microtype} 
 \usepackage[hidelinks]{hyperref}
 \usepackage{subcaption}
 \usepackage{float}
@@ -13,6 +14,7 @@
 \usepackage{titlesec}
 \usepackage{geometry}
 \usepackage{cleveref}
+\usepackage{multirow}
 \usepackage{multirow}
 \usepackage{amssymb}
 \usepackage{tikz}
@@ -49,7 +51,7 @@ speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
 Test ($\approx$ 10\%) split, governed by provenance checksums.
 To ensure robust evaluation, classical models, deep acoustic models (ECAPA-TDNN), and the proposed DFAT pipeline are evaluated using a strict speaker-independent protocol.
 
-Driven by Weighted F1~as the primary anchor metric, results on the held-out
+Driven by Weighted F1 as the primary anchor metric, results on the held-out
 test set demonstrate a significant advancement: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
 \end{abstract}
 
@@ -97,7 +99,7 @@ Vietnamese Speech Emotion Recognition under strict speaker-independent evaluatio
 We propose DFAT, a dual-stream architecture combining WavLM acoustic embeddings 
 with PhoBERT linguistic embeddings derived via PhoWhisper ASR. On the ViSEC dataset, 
 DFAT achieves 0.4897 wF1, outperforming the ECAPA-TDNN acoustic baseline (0.4125 wF1) 
-by +7.72 percentage points ($p < 0.001$).
+by +7.72 percentage points (\(p < 0.001\)).
 \end{tcolorbox}
 
 \section{Background and Motivation}
@@ -227,7 +229,7 @@ Table~\ref{tab:dataset_snapshot} provides a high-level summary of the dataset.
 Total Samples & 5,280 \\
 Total Speakers & 147 \\
 Classes & Angry, Happy, Neutral, Sad \\
-Train / Val / Test Samples & 4,120 / 484 / 676 ($\approx$ 80/10/10) \\
+Train / Val / Test Samples & 4,120 / 484 / 676 ($\approx$ 78/9/13) \\
 Train / Val / Test Speakers & 32 / 68 / 47 \\
 \bottomrule
 \end{tabular}
@@ -299,7 +301,7 @@ Figure~\ref{fig:samples_per_speaker} shows the distribution of samples per speak
 To ensure academic rigor, we implement a highly controlled experimental protocol:
 \begin{itemize}
     \item \textbf{Speaker-Independent Split}: The 147 speakers are partitioned such that no speaker in the training set appears in the validation or test sets. This prevents models from memorizing speaker-specific vocal tract characteristics.
-    \item \textbf{Train/Validation/Test Allocation}: The split roughly follows an 80/10/10 ratio. 
+    \item \textbf{Train/Validation/Test Allocation}: The split roughly follows an 78/9/13 ratio. 
     \item \textbf{No Leakage \& Checksum}: The allocation is computed via a greedy algorithm and saved to \texttt{split\_manifest.json}. A SHA-256 checksum verifies the integrity of this split at runtime for every evaluated model.
     \item \textbf{Validation Tuning}: Hyperparameter tuning is strictly isolated
     to the validation set. The test set is only queried once for final reporting.
@@ -504,17 +506,17 @@ Table~\ref{tab:design_choices} summarizes the key hyperparameters across all thr
 \toprule
 \textbf{Pipeline} & \textbf{Parameter} & \textbf{Why it matters} & \textbf{Why this value} \\
 \midrule
-\multirow{2}{*}{MFCC + RF}
+MFCC + RF
 & \texttt{n\_mfcc=40} & Dimensionality of acoustic input. & 40 coefficients capture sufficient spectral resolution for a classical classifier on $\approx$4k samples. \\
 & \texttt{n\_est.=300} & Controls ensemble variance. & Provides stable variance reduction; beyond 300 trees, returns diminish while CPU latency grows. \\
 \midrule
-\multirow{4}{*}{ECAPA-TDNN}
+ECAPA-TDNN
 & \texttt{channels=256} & Width of TDNN blocks. & Balances capacity against overfitting risk on the small ViSEC dataset. \\
 & \texttt{emb\_size=192} & Bottleneck size. & Forces the model to distill robust emotional characteristics, preventing speaker memorization. \\
 & \texttt{lr=3e-4} & Optimization step size. & Standard stable rate; higher values cause divergence, lower values stall. \\
 & \texttt{patience=20} & Epochs before LR decay. & Buffers against stochastic noise in validation F1 on small-data training runs. \\
 \midrule
-\multirow{3}{*}{DFAT Hybrid Fusion}
+DFAT Hybrid Fusion
 & \texttt{fusion=1536-d} & Concatenated embedding size. & Natural output of WavLM-base (768-d) + PhoBERT-base (768-d). \\
 & \texttt{PhoWhisper-L} & ASR transcript quality. & Best quality for Vietnamese text; an inferior model degrades text quality catastrophically. \\
 & \texttt{XGBoost} & Classifier architecture. & A single XGBoost classifier reduces latency and prevents overfitting on small data. \\
@@ -607,7 +609,7 @@ this result reveals its significance:
     speaker leakage was artificially inflating prior benchmarks.
 \end{itemize}
 
-\textbf{Interpretation}: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest~\cite{breiman2001random} baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence. \textit{Statistical summary}: DFAT wF1 = 0.4897 $\pm$ 0.0122 (std), 95\% CI = [0.4775, 0.5019]. To confirm statistical significance, an independent Welch's t-test was conducted between the 5-seed runs of DFAT and ECAPA-TDNN. The performance gain is highly significant ($t(8) = 8.24$, $p < 0.001$), with a massive effect size (Cohen's $d = 5.21$).
+Interpretation: Under the rigorous speaker-independent evaluation protocol, the proposed DFAT Hybrid Fusion pipeline achieves the highest performance with a wF1 of 0.4897, significantly outperforming both the classical MFCC+RandomForest~\cite{breiman2001random} baseline (wF1 = 0.3510) and the deep acoustic ECAPA-TDNN baseline (wF1 = 0.4125). This marks a massive success for the audio-linguistic fusion approach. The significant drop of ECAPA-TDNN's performance relative to prior random-split studies highlights the immense difficulty of speaker-independent emotion recognition; however, DFAT's superior score proves that integrating textual semantics effectively buffers against speaker-induced acoustic variance. The standard deviation ($\sigma=0.0122$) across 5 seeds indicates stable and reproducible convergence. \textit{Statistical summary}: DFAT wF1 = 0.4897 $\pm$ 0.0122 (std), 95\% CI = [0.4775, 0.5019]. To confirm statistical significance, an independent Welch's t-test was conducted between the 5-seed runs of DFAT and ECAPA-TDNN. The performance gain is highly significant (\(t(8) = 8.24, p < 0.001\)), with a massive effect size (Cohen's \(d = 5.21\)).
 
 \textbf{What happened}: The proposed audio-linguistic fusion pipeline successfully surpassed the pure acoustic deep learning baseline. 
 
@@ -878,26 +880,15 @@ To advance this research, future work should focus on:
 
 To reproduce all results from scratch:
 
-\begin{verbatim}
-# 1. Generate fixed split
-python internal/generate_splits.py
-
-# 2. Train all models
-python ECAPA/train_emotion_model.py
-python DFAT_Hybrid_Fusion/train_dualstream.py
-
-# 3. Run unified benchmark
-python benchmark_methods_gpu.py
-
-# 4. Run ablation study
-python DFAT_Hybrid_Fusion/ablation_study.py
-
-# 5. Sync results to report
-python internal/sync_notebook.py
-
-# 6. Validate integrity
-python internal/validate_release.py
-\end{verbatim}
+\begin{itemize}
+    \item \textbf{1. Generate fixed split}: \texttt{python internal/generate\_splits.py}
+    \item \textbf{2. Train ECAPA model}: \texttt{python ECAPA/train\_emotion\_model.py}
+    \item \textbf{3. Train DFAT model}: \texttt{python DFAT\_Hybrid\_Fusion/train\_dualstream.py}
+    \item \textbf{4. Run unified benchmark}: \texttt{python benchmark\_methods\_gpu.py}
+    \item \textbf{5. Run ablation study}: \texttt{python DFAT\_Hybrid\_Fusion/ablation\_study.py}
+    \item \textbf{6. Sync results to report}: \texttt{python internal/sync\_notebook.py}
+    \item \textbf{7. Validate integrity}: \texttt{python internal/validate\_release.py}
+\end{itemize}
 
 \section{Reproducibility Checklist}
 \begin{itemize}

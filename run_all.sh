@@ -31,6 +31,8 @@ python validate_release.py
 
 echo "7. Compiling LaTeX Report..."
 pdflatex -interaction=nonstopmode Report_SER.tex
+bibtex Report_SER
+pdflatex -interaction=nonstopmode Report_SER.tex
 pdflatex -interaction=nonstopmode Report_SER.tex
 
 echo "All downstream tasks completed successfully!"
