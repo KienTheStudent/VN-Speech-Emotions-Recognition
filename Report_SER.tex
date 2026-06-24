@@ -564,7 +564,7 @@ The primary benchmark results on the integrity-checked test set are presented in
 \toprule
 \textbf{Method} & \textbf{wF1} & \textbf{$\sigma$} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
-\quad \textbf{DFAT Hybrid Fusion (Proposed)} & 0.4897 & 0.0122 & 0.4841 & 0.4929 \\
+\quad \textbf{DFAT Hybrid Fusion} & 0.4897 & 0.0122 & 0.4841 & 0.4929 \\
 \quad \textbf{ECAPA-TDNN (simplified implementation)} & 0.4125 & 0.0171 & 0.4122 & 0.4112 \\
 \quad \textbf{MFCC+RandomForest} & 0.3510 & 0.0026 & 0.3365 & 0.3716 \\
 \bottomrule
@@ -763,14 +763,14 @@ To prove the necessity of the proposed streams, we conducted a rigorous ablation
 \textbf{Configuration} & \textbf{wF1} & \textbf{mF1} & \textbf{Acc} \\
 \midrule
 Acoustic-only (WavLM) & 0.4918 & 0.4887 & 0.4896 \\
-Linguistic-only (PhoWhisper-large + PhoBERT) & 0.3953 & 0.3942 & 0.3964 \\
+Linguistic-only (vinai/PhoWhisper-large + PhoBERT) & 0.3953 & 0.3942 & 0.3964 \\
 Early Fusion (Concat 1536-d) & 0.5080 & 0.5023 & 0.5104 \\
 Early Fusion (No StandardScaler) & 0.5238 & 0.5203 & 0.5237 \\
 Early Fusion (No Optuna tuning) & 0.4982 & 0.4916 & 0.5030 \\
 Early Fusion (No word segmentation) & 0.4947 & 0.4912 & 0.4956 \\
 Late Fusion (stream-level) & 0.4365 & 0.4259 & 0.4586 \\
-Linguistic-only (whisper-small + PhoBERT) & 0.3517 & 0.3471 & 0.3609 \\
-Early Fusion (whisper-small) & 0.4716 & 0.4641 & 0.4749 \\
+Linguistic-only (openai/whisper-small + PhoBERT) & 0.3517 & 0.3471 & 0.3609 \\
+Early Fusion (openai/whisper-small) & 0.4716 & 0.4641 & 0.4749 \\
 Early Fusion + 10\% synthetic noise & 0.4934 & 0.4881 & 0.4941 \\
 Early Fusion + 20\% synthetic noise & 0.4863 & 0.4798 & 0.4882 \\
 Early Fusion + 30\% synthetic noise & 0.4941 & 0.4920 & 0.4941 \\
@@ -893,7 +893,7 @@ python benchmark_methods_gpu.py
 python DFAT_Hybrid_Fusion/ablation_study.py
 
 # 5. Sync results to report
-python internal/sync_results.py
+python internal/sync_notebook.py
 
 # 6. Validate integrity
 python internal/validate_release.py
