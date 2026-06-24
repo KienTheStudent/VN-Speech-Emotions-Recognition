@@ -186,7 +186,9 @@ if BENCHMARK_RESULTS_PATH.exists():
     print("\\n--- Confusion Matrices ---")
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     
-    for idx, (ax, model_name) in enumerate(zip(axes, ["ECAPA-TDNN (simplified implementation)", "DFAT Late Fusion"])):
+    dfat_model = next((r['method'] for r in benchmark_data['ranked_results'] if 'DFAT' in r['method']), "DFAT Hybrid Fusion")
+    ecapa_model = next((r['method'] for r in benchmark_data['ranked_results'] if 'ECAPA' in r['method']), "ECAPA-TDNN (simplified implementation)")
+    for idx, (ax, model_name) in enumerate(zip(axes, [ecapa_model, dfat_model])):
         model_res = next((r for r in benchmark_data['ranked_results'] if r['method'] == model_name), None)
         if model_res and 'confusion_matrix' in model_res['representative_run']:
             cm = np.array(model_res['representative_run']['confusion_matrix'])
@@ -242,8 +244,8 @@ if BENCHMARK_RESULTS_PATH.exists():
     if ecapa_res and dfat_res:
         ecapa_f1 = [ecapa_res['representative_run']['classification_report'][e]['f1-score'] for e in emotion_labels]
         dfat_f1 = [dfat_res['representative_run']['classification_report'][e]['f1-score'] for e in emotion_labels]
-        ax.bar(x - width/2, ecapa_f1, width, label='ECAPA-TDNN', color='#42A5F5', alpha=0.85)
-        ax.bar(x + width/2, dfat_f1, width, label='DFAT Late Fusion', color='#EF5350', alpha=0.85)
+        ax.bar(x - width/2, ecapa_f1, width, label=ecapa_res['method'], color='#42A5F5', alpha=0.85)
+        ax.bar(x + width/2, dfat_f1, width, label=dfat_res['method'], color='#EF5350', alpha=0.85)
         for i in range(len(emotion_labels)):
             ax.text(x[i] - width/2, ecapa_f1[i] + 0.01, f'{ecapa_f1[i]:.3f}', ha='center', fontsize=8)
             ax.text(x[i] + width/2, dfat_f1[i] + 0.01, f'{dfat_f1[i]:.3f}', ha='center', fontsize=8)
@@ -275,7 +277,7 @@ if BENCHMARK_RESULTS_PATH.exists():
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.barh(labels_pair[::-1], counts[::-1], color='#EF5350', alpha=0.8)
         ax.set_xlabel("Misclassification Count (DFAT)")
-        ax.set_title("Top Confusion Pairs (DFAT Late Fusion)")
+        ax.set_title(f"Top Confusion Pairs ({dfat_res['method']})")
         for i, v in enumerate(counts[::-1]):
             ax.text(v + 0.5, i, str(v), va='center', fontsize=9)
         plt.tight_layout()
@@ -317,7 +319,7 @@ if BENCHMARK_RESULTS_PATH.exists():
         report = dfat_res['representative_run']['classification_report']
         
         print("="*70)
-        print("QUALITATIVE CASE STUDY SUMMARY (DFAT Late Fusion)")
+        print(f"QUALITATIVE CASE STUDY SUMMARY ({dfat_res['method']})")
         print("="*70)
         
         # Best and worst classes
@@ -416,7 +418,7 @@ if preds_path.exists():
     if failed_cases:
         plot_demo(failed_cases[0], "DEMO: FAILURE CASE (ASR NOISE OR ACOUSTIC AMBIGUITY)")
 else:
-    print("per_sample_predictions.json not found. Run extract_inference_metadata.py first.")
+    print("per_sample_predictions.json not found. Run internal/extract_inference_metadata.py first.")
 """
 
 def split_lines(text):
@@ -439,12 +441,26 @@ def generate_notebook():
         {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": split_lines(cell_demo)[:-1]},
     ]
 
-    nb = {
-        "cells": cells,
-        "metadata": {"language_info": {"name": "python"}},
-        "nbformat": 4,
-        "nbformat_minor": 2,
-    }
+    if notebook_path.exists():
+        try:
+            with open(notebook_path, "r", encoding="utf-8") as f:
+                nb = json.load(f)
+        except Exception:
+            nb = {}
+    else:
+        nb = {}
+
+    if "metadata" not in nb:
+        nb["metadata"] = {"language_info": {"name": "python"}}
+    nb["nbformat"] = 4
+    nb["nbformat_minor"] = 2
+
+    if "cells" in nb and len(nb["cells"]) == len(cells):
+        for i in range(len(cells)):
+            nb["cells"][i]["source"] = cells[i]["source"]
+            nb["cells"][i]["cell_type"] = cells[i]["cell_type"]
+    else:
+        nb["cells"] = cells
 
     with open(notebook_path, "w", encoding="utf-8") as f:
         json.dump(nb, f, indent=1, ensure_ascii=False)
