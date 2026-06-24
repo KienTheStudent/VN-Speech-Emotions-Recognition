@@ -507,9 +507,9 @@ To summarize the evaluated pipelines, Figure~\ref{fig:pipeline_comp} provides a 
 \begin{scope}[xshift=4.5cm]
     \node[label, red] at (0,2) {DFAT (Proposed)};
     \node[box, pipeline=red] (c1) at (0,1.2) {Audio (16kHz)};
-    \node[box, pipeline=orange] (c2a) at (-0.8,0.4) {WavLM};
-    \node[box, pipeline=orange] (c2b) at (0.8,0.4) {PhoWhisper};
-    \node[box, pipeline=orange] (c3) at (0.8,-0.4) {PhoBERT};
+    \node[box, pipeline=orange, minimum width=1.6cm] (c2a) at (-0.9,0.4) {WavLM};
+    \node[box, pipeline=orange, minimum width=1.6cm] (c2b) at (0.9,0.4) {PhoWhisper};
+    \node[box, pipeline=orange, minimum width=1.6cm] (c3) at (0.9,-0.4) {PhoBERT};
     \node[box, pipeline=red] (c4) at (0,-1.2) {XGBoost};
     \node[label] at (0,-2) {\textasciitilde0.49 wF1};
     \draw[arrow, red] (c1) -- (c2a);
@@ -632,11 +632,11 @@ The primary benchmark results on the integrity-checked test set are presented in
 \end{figure}
 
 \begin{tcolorbox}[colback=green!5!white,colframe=green!75!black,title=Statistical Summary]
-\begin{tabular}{ll}
-\textbf{DFAT vs. ECAPA-TDNN}: & $t(8) = 8.24$, $p < 0.001$, Cohen's $d = 5.21$ (large effect) \\
-\textbf{DFAT vs. MFCC+RF}: & $t(8) = 12.7$, $p < 0.001$, Cohen's $d = 8.4$ (very large effect) \\
-\textbf{95\% CI for DFAT wF1}: & $[0.4775, 0.5019]$ \\
-\end{tabular}
+\begin{itemize}
+    \item \textbf{DFAT vs. ECAPA-TDNN}: $t(8) = 8.24$, $p < 0.001$, Cohen's $d = 5.21$ (large effect)
+    \item \textbf{DFAT vs. MFCC+RF}: $t(8) = 12.7$, $p < 0.001$, Cohen's $d = 8.4$ (very large effect)
+    \item \textbf{95\% CI for DFAT wF1}: $[0.4775, 0.5019]$
+\end{itemize}
 \end{tcolorbox}
 
 \subsection{Why Is 0.49 wF1 Considered Strong?}
