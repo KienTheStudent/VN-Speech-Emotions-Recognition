@@ -29,8 +29,8 @@
 
 \begin{titlepage}
     \centering
-    {\Large UNIVERSITY OF SCIENCE AND TECHNOLOGY OF HANOI\\[0.3cm]
-    \textbf{DEPARTMENT OF INFORMATION AND COMMUNICATION TECHNOLOGY}}\\[1.5cm]
+    \resizebox{\textwidth}{!}{UNIVERSITY OF SCIENCE AND TECHNOLOGY OF HANOI}\\[0.3cm]
+    \resizebox{\textwidth}{!}{\textbf{DEPARTMENT OF INFORMATION AND COMMUNICATION TECHNOLOGY}}\\[1.5cm]
 
     \includegraphics[width=0.5\textwidth]{report_images/Logo-Truong-Dai-hoc-Khoa-hoc-va-Cong-nghe-Ha-Noi.png}\\[1.5cm]
     
@@ -75,23 +75,8 @@
 
 \clearpage
 
-\begin{abstract}
-This thesis presents a systematic comparative benchmark and an ASR-assisted
-audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER)
-on the ViSEC dataset. We evaluate three primary classification pipelines
-representing distinct paradigms: handcrafted features with classical ML
-(MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN),
-and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM
-acoustic embeddings with PhoBERT linguistic embeddings derived via PhoWhisper ASR.
-
-All experiments follow a strict leak-free protocol with a fixed
-speaker-independent Train ($\approx$ 80\%) / Validation ($\approx$ 10\%) /
-Test ($\approx$ 10\%) split, governed by provenance checksums.
-To ensure robust evaluation, classical models, deep acoustic models (ECAPA-TDNN), and the proposed DFAT pipeline are evaluated using a strict speaker-independent protocol.
-
-Driven by Weighted F1 as the primary anchor metric, results on the held-out
-test set demonstrate a significant advancement: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
-\end{abstract}
+\tableofcontents
+\clearpage
 
 \chapter*{Acknowledgements}
 \addcontentsline{toc}{chapter}{Acknowledgements}
@@ -117,17 +102,38 @@ I would like to express my sincere gratitude to my advisor and professors for th
 \end{tabbing}
 \endgroup
 
-\tableofcontents
+\clearpage
 
-\begingroup
-\let\clearpage\relax
-\vspace{1.5cm}
-\listoffigures
-\addcontentsline{toc}{chapter}{List of Figures}
-\vspace{1.5cm}
 \listoftables
 \addcontentsline{toc}{chapter}{List of Tables}
+
+\vspace{1.5cm}
+\begingroup
+\let\clearpage\relax
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
 \endgroup
+
+\clearpage
+
+\begin{abstract}
+This thesis presents a systematic comparative benchmark and an ASR-assisted
+audio-linguistic fusion method for Vietnamese Speech Emotion Recognition (SER)
+on the ViSEC dataset. We evaluate three primary classification pipelines
+representing distinct paradigms: handcrafted features with classical ML
+(MFCC + RandomForest), end-to-end deep learning (Simplified ECAPA-TDNN),
+and a proposed dual-stream hybrid fusion system (DFAT) combining WavLM
+acoustic embeddings with PhoBERT linguistic embeddings derived via PhoWhisper ASR.
+
+All experiments follow a strict leak-free protocol with a fixed
+speaker-independent Train ($\approx$ 78\%) / Validation ($\approx$ 9\%) /
+Test ($\approx$ 13\%) split, governed by provenance checksums.
+To ensure robust evaluation, classical models, deep acoustic models (ECAPA-TDNN), and the proposed DFAT pipeline are evaluated using a strict speaker-independent protocol.
+
+Driven by Weighted F1 as the primary anchor metric, results on the held-out
+test set demonstrate a significant advancement: the proposed DFAT Hybrid Fusion pipeline (wF1 = 0.4897) successfully outperforms the deep acoustic baseline ECAPA-TDNN (wF1 = 0.4125). Analysis reveals that while pure acoustic end-to-end models like ECAPA-TDNN suffer massive performance drops when encountering unseen speakers, integrating ASR-derived linguistic representations provides a crucial semantic anchor that mitigates speaker-induced acoustic variance. These findings highlight the absolute necessity of audio-linguistic fusion for robust affective computing.
+\end{abstract}
+\clearpage
 
 \chapter{Introduction}
 
