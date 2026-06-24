@@ -25,17 +25,52 @@
 
 \geometry{left=1.5in, right=1in, top=1in, bottom=1in}
 
-\title{Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese Speech Emotion Recognition on ViSEC}
-\author{
-    Ngo Xuan Kien \\
-    Student ID: 23BI14239 \\ 
-    B3 Data Science
-}
-\date{May 2026}
-
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+    \centering
+    UNIVERSITY OF SCIENCE AND TECHNOLOGY OF HANOI\\
+    DEPARTMENT OF INFORMATION AND COMMUNICATION TECHNOLOGY\\[1.5cm]
+
+    \includegraphics[width=0.5\textwidth]{report_images/Logo-Truong-Dai-hoc-Khoa-hoc-va-Cong-nghe-Ha-Noi.png}\\[1.5cm]
+    
+    {\Huge \textbf{BACHELOR THESIS}\\[1cm]}
+    
+    By\\
+    Ngo Xuan Kien\\[1cm]
+    
+    {\Large Title:\\
+    Comparative Benchmarking and ASR-Assisted Audio-Linguistic Fusion for Vietnamese Speech Emotion Recognition on ViSEC\\[2cm]}
+    
+    \begin{tabular}{ll}
+        External Supervisor: & Mr. Tran Nhat Quang \\
+        Internal Supervisor: & Dr. Nghiem Thi Phuong
+    \end{tabular}
+    
+    \vfill
+    
+    \textbf{Hanoi, 6/2026}
+\end{titlepage}
+
+\clearpage
+\thispagestyle{empty}
+
+\vspace*{3cm}
+\begin{center}
+    To whom it may concern,
+\end{center}
+\vspace{1cm}
+
+\noindent I, Tran Nhat Quang (supervisor's name), certify that the thesis/ internship report of Mr/Ms. Ngo Xuan Kien (student's name) is qualified to be presented in the Internship Jury 2025-2026.
+
+\vspace{3cm}
+
+\begin{flushright}
+    Hanoi, 30/6/2026\\[1.5cm]
+    \textbf{Supervisor's signature}\hspace*{1cm}
+\end{flushright}
+
+\clearpage
 
 \begin{abstract}
 This thesis presents a systematic comparative benchmark and an ASR-assisted
@@ -486,10 +521,10 @@ To summarize the evaluated pipelines, Figure~\ref{fig:pipeline_comp} provides a 
 \toprule
 \textbf{Limitation} & \textbf{MFCC+RF} & \textbf{ECAPA-TDNN} & \textbf{DFAT} \\
 \midrule
-Temporal modeling & ❌ Mean-pooling destroys sequence & ✅ TDNN captures dilated context & ✅ WavLM self-attention \\
-Speaker generalization & ❌ Memorizes timbre & ⚠️ Overfits to seen speakers & ✅ Text anchors to semantics \\
-ASR noise robustness & N/A & N/A & ⚠️ Degrades if ASR fails \\
-Real-time inference & ✅ <1ms/sample & ✅ ~5ms/sample & ❌ ~200ms/sample \\
+Temporal modeling & \textbf{-} Mean-pooling destroys sequence & \textbf{+} TDNN captures dilated context & \textbf{+} WavLM self-attention \\
+Speaker generalization & \textbf{-} Memorizes timbre & \textbf{!} Overfits to seen speakers & \textbf{+} Text anchors to semantics \\
+ASR noise robustness & N/A & N/A & \textbf{!} Degrades if ASR fails \\
+Real-time inference & \textbf{+} <1ms/sample & \textbf{+} ~5ms/sample & \textbf{-} ~200ms/sample \\
 \bottomrule
 \end{tabular}
 \caption{Capability matrix of evaluated pipelines.}
