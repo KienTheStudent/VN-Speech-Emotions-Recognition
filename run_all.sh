@@ -18,7 +18,7 @@ echo "2. Regenerating Benchmark Results..."
 python benchmark_methods_gpu.py
 
 echo "3. Extracting Inference Metadata..."
-python scripts/extract_inference_metadata.py --model_dir DFAT_Hybrid_Fusion/dualstream_model
+python internal/extract_inference_metadata.py --model_dir DFAT_Hybrid_Fusion/dualstream_model
 
 echo "4. Generating Report Figures..."
 python generate_report_figures.py
