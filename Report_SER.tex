@@ -226,13 +226,19 @@ The remainder of this thesis is structured as follows. Chapter 2 reviews the rel
 
 \chapter{Related Work}
 \section{Classical Approaches}
-Traditional SER heavily relies on handcrafted acoustic features, notably Mel-Frequency Cepstral Coefficients (MFCCs), combined with classical machine learning classifiers such as Support Vector Machines or Random Forests. While computationally efficient, these approaches often struggle to generalize across diverse speakers and environmental conditions.
+Traditional SER heavily relies on handcrafted acoustic features, notably Mel-Frequency Cepstral Coefficients (MFCCs), combined with classical machine learning classifiers such as Support Vector Machines or Random Forests. \textbf{Analysis:} While computationally efficient and capturing basic spectral envelopes effectively, these approaches miss complex temporal dynamics and often struggle to generalize across diverse speakers. In the context of Vietnamese SER, classical models lack the contextual understanding needed to resolve ambiguity between lexical tones and emotional prosody.
 
 \section{Deep Audio Models}
-The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN \cite{desplanques2020ecapa} leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations. Similarly, self-supervised foundation models like WavLM \cite{chen2022wavlm} extract rich, continuous acoustic features from unlabelled speech, providing a strong anchor for downstream SER tasks.
+The advent of deep learning introduced architectures capable of learning representations directly from spectrograms or raw waveforms. Models such as ECAPA-TDNN \cite{desplanques2020ecapa} leverage time-delay neural networks and attention mechanisms to capture temporal and channel-wise dependencies, significantly improving robustness against speaker variations. 
+
+\subsection{Self-Supervised Speech Representations}
+Recent breakthroughs highlight self-supervised models like wav2vec 2.0, HuBERT, and WavLM \cite{chen2022wavlm}, pre-trained on vast unlabelled speech corpora. While wav2vec 2.0 and HuBERT excel at extracting phonetic features, WavLM is explicitly designed for full-stack speech processing, capturing both phonetic content and speaker/prosody characteristics through structural denoising tasks. \textbf{Analysis:} Deep audio models excel at capturing rich paralinguistic acoustic contexts. However, they remain audio-only; they miss explicit semantic grounding. For Vietnamese, pure acoustic embeddings still suffer ambiguity without linguistic anchors. This is precisely why WavLM is chosen as the robust acoustic backbone for our fusion approach rather than functioning as a standalone classifier.
 
 \section{Audio-Linguistic Fusion}
-Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition (e.g., PhoWhisper \cite{nguyen2024phowhisper}) to infer text from audio, followed by semantic embedding models like PhoBERT \cite{nguyen2020phobert}, merging both streams to achieve superior classification performance.
+Recent advancements highlight the limitation of relying solely on acoustics, as human emotion is inherently multimodal. Incorporating linguistic information has proven effective in resolving acoustic ambiguities. In scenarios lacking ground-truth transcripts, ASR-assisted audio-linguistic fusion employs Automatic Speech Recognition (e.g., PhoWhisper \cite{nguyen2024phowhisper}) to infer text from audio, followed by semantic embedding models like PhoBERT \cite{nguyen2020phobert}, merging both streams to achieve superior classification performance. \textbf{Analysis:} This approach captures the crucial semantic context that pure acoustic models miss, effectively regularizing predictions. Its primary weakness is vulnerability to ASR transcription noise; if the ASR fails on emotional prosody, the linguistic stream degrades. Despite this, explicit fusion remains highly relevant for Vietnamese SER because the textual anchor is indispensable for resolving tonal confusion.
+
+\vspace{0.5cm}
+\noindent \textbf{Summary of Limitations:} The literature reveals three critical gaps: the vulnerability of classical models to speaker leakage, the brittleness of audio-only models due to missing semantic grounding, and the necessity of balanced fusion to handle tonal ambiguity. Therefore, Chapter 3 will explicitly address these by conducting a rigorous dataset audit, designing a leak-free split protocol, and constructing the DFAT pipeline as an ASR-assisted framework.
 
 \begin{table}[h]
 \centering
@@ -916,6 +922,7 @@ While the proposed approach demonstrates strong empirical results, it exhibits s
 \section{Future Work}
 To advance this research, future work should focus on:
 \begin{itemize}
+    \item \textbf{Model Compression and Deployment}: Addressing computational overhead by distilling heavy models (like WavLM or PhoBERT) into lighter encoders, or quantizing the XGBoost-backed pipeline for optimized runtime. Exploring lightweight end-to-end inference models is critical to achieve real-world deployment latency.
     \item \textbf{End-to-End Multi-Task Learning}: Replacing the heavy sequential PhoWhisper-PhoBERT pipeline with a single multi-task model that jointly predicts transcripts and emotion to drastically reduce latency.
     \item \textbf{Dataset Expansion}: Expanding the ViSEC dataset with spontaneous, unscripted conversational data to mitigate the artificial distributions found in acted corpora.
     \item \textbf{Cross-Corpus Generalization}: Evaluating the DFAT pipeline on out-of-domain Vietnamese datasets to further validate its resilience to diverse recording environments.
